@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 class SuccessScreen extends StatelessWidget {
   final VoidCallback? onBackToHome;
+  final VoidCallback? onViewCardDetails;
 
   const SuccessScreen({
     Key? key,
     this.onBackToHome,
+    this.onViewCardDetails,
   }) : super(key: key);
 
   @override
@@ -29,7 +31,7 @@ class SuccessScreen extends StatelessWidget {
                       fontSize: 27,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Inter',
-                      height: 18 / 27, // lineHeight: 18px
+                      height: 18 / 27,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -43,7 +45,7 @@ class SuccessScreen extends StatelessWidget {
                         fontSize: 15,
                         fontWeight: FontWeight.w300,
                         fontFamily: 'Inter',
-                        height: 18 / 15, // lineHeight: 18px
+                        height: 18 / 15,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -58,29 +60,55 @@ class SuccessScreen extends StatelessWidget {
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 6,
+                        ),
+                        onPressed: onBackToHome ?? () {},
+                        child: const Text(
+                          'Back to Home',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
                       ),
-                      elevation: 6,
                     ),
-                    onPressed: () {},
-                    child: const Text(
-                      'Back to Home',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFF144EA6),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 6,
+                        ),
+                        onPressed: onViewCardDetails ?? () {},
+                        child: const Text(
+                          'Card Details',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],
