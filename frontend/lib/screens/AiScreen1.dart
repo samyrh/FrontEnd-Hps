@@ -1,0 +1,160 @@
+import 'package:flutter/material.dart';
+
+class AIScreen extends StatelessWidget {
+  const AIScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const backgroundColor = Color(0xFFF2F3F5); // shared background
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        backgroundColor: backgroundColor, // match body color
+        elevation: 0,
+        leading: const BackButton(color: Colors.black),
+        title: const Text(
+          'AI Chatbot',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1E1E2D),
+            fontFamily: 'Inter',
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 24),
+
+            // Full image (not cropped)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              width: double.infinity,
+              child: Image.asset(
+                'assets/ai3.png',
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Dot indicators
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildDot(isActive: true),  // First dot active
+                _buildDot(isActive: false),
+                _buildDot(isActive: false),
+              ],
+            ),
+
+
+            const SizedBox(height: 36),
+
+            const Text(
+              "Smart e-Banking with AI",
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+            ),
+            const Text(
+              "Tailored for HPS Innovation",
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+            ),
+
+
+            const SizedBox(height: 16),
+
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 36),
+              child: Text(
+                "Chat with the smartest AI Future\nExperience the power of AI with us",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.grey,
+                  height: 1.5,
+                ),
+              ),
+            ),
+
+            const Spacer(),
+
+            // Navigation buttons
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 100),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(40),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // 🔒 Disabled left button (dimmed and non-clickable)
+                  const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.grey,
+                  ),
+
+                  // Vertical separator
+                  Container(
+                    width: 1.5,
+                    height: 24,
+                    color: Colors.grey.shade300,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+
+                  // ✅ Active right button (clickable)
+                  InkWell(
+                    onTap: () {
+                      // Handle navigation logic here
+                      print("Forward button clicked");
+                    },
+                    borderRadius: BorderRadius.circular(40),
+                    child: const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 36),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDot({required bool isActive}) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.symmetric(horizontal: 5),
+      height: 10,
+      width: isActive ? 24 : 10,
+      decoration: BoxDecoration(
+        color: isActive ? Colors.black87 : Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(20),
+      ),
+    );
+  }
+}
