@@ -6,7 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/CustomDropdown.dart';
 import '../widgets/LimitSlider.dart';
+import '../widgets/Toast.dart';
 import '../widgets/UltraSwitch.dart';
+import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
+
 
 class AlwaysDisabledFocusNode extends FocusNode {
   @override
@@ -28,6 +32,14 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   bool showPinPopup = false;
   int countdown = 5;
   bool isCvvRevealed = false;
+  bool isContactlessEnabled = true;
+  bool isEcommerceEnabled = true;
+  bool isTpePaymentEnabled = true;
+  DateTime? blockStartDate;
+  DateTime? blockEndDate;
+  bool showRequestCard = false;
+  bool isPermanent = false;
+
 
   final TextEditingController _cvvController = TextEditingController(
       text: '•••');
@@ -47,16 +59,23 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   ];
 
   final List<DropdownItem> blockReasons = [
-    DropdownItem(
-        label: 'Card Lost – Cannot Find It', icon: Icons.report_gmailerrorred),
-    DropdownItem(
-        label: 'Card Stolen – Unauthorized Use', icon: Icons.lock_person),
-    DropdownItem(label: 'Card Damaged – Not Functional',
-        icon: Icons.settings_backup_restore),
+    DropdownItem(label: 'Temporary Block', icon: Icons.timelapse),
+    DropdownItem(label: 'Permanent Block', icon: Icons.cancel),
+    DropdownItem(label: 'Card Lost – Cannot Find It', icon: Icons.report_gmailerrorred),
+    DropdownItem(label: 'Card Stolen – Unauthorized Use', icon: Icons.lock_person),
+    DropdownItem(label: 'Card Damaged – Not Functional', icon: Icons.settings_backup_restore),
   ];
+
 
   double selectedLimit = 500;
   bool isBlocked = false;
+
+
+  final Map<String, double> maxLimitByType = {
+    'Daily Spending Limit': 1000,
+    'Monthly Spending Cap': 10000,
+    'Online Purchase Restriction': 2000,
+  };
 
   final Gradient cardGradient = const LinearGradient(
     colors: [Color(0xFF7F7FD5), Color(0xFF86A8E7)],
@@ -143,6 +162,238 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     });
   }
 
+
+  // Calendar will works with travelplan
+  Future<void> _pickBlockDates() async {
+    DateTime now = DateTime.now();
+    DateTime? tempStart;
+    DateTime? tempEnd;
+    DateTime focusedDay = now;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Padding(
+          padding: MediaQuery.of(context).viewInsets, // handles keyboard safely
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 12,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: StatefulBuilder(
+              builder: (context, setModalState) {
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // iOS-style drag pill
+                      Container(
+                        width: 40,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+
+                      // Title
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          'Select Block Date Range',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1C1C1E),
+                          ),
+                        ),
+                      ),
+
+                      // TableCalendar
+                      TableCalendar(
+                        firstDay: now,
+                        lastDay: now.add(const Duration(days: 365)),
+                        focusedDay: focusedDay,
+                        currentDay: null,
+                        calendarFormat: CalendarFormat.month,
+                        rangeStartDay: tempStart,
+                        rangeEndDay: tempEnd,
+                        startingDayOfWeek: StartingDayOfWeek.monday,
+                        headerStyle: const HeaderStyle(
+                          titleCentered: true,
+                          formatButtonVisible: false,
+                          titleTextStyle: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        calendarStyle: CalendarStyle(
+                          rangeHighlightColor: Colors.blueAccent.withOpacity(0.25),
+                          rangeStartDecoration: const BoxDecoration(
+                            color: Color(0xFF717172),
+                            shape: BoxShape.circle,
+                          ),
+                          rangeEndDecoration: const BoxDecoration(
+                            color: Color(0xFF007AFF),
+                            shape: BoxShape.circle,
+                          ),
+                          defaultTextStyle: const TextStyle(fontSize: 14),
+                          withinRangeTextStyle: const TextStyle(color: Colors.black87),
+                          selectedDecoration: const BoxDecoration(
+                            color: Color(0xFF007AFF),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        selectedDayPredicate: (day) =>
+                        (tempStart != null && isSameDay(tempStart, day)) ||
+                            (tempEnd != null && isSameDay(tempEnd, day)),
+                        onDaySelected: (selectedDay, focused) {
+                          setModalState(() {
+                            focusedDay = focused;
+                            if (tempStart != null &&
+                                tempEnd == null &&
+                                selectedDay.isAfter(tempStart!)) {
+                              tempEnd = selectedDay;
+                            } else {
+                              tempStart = selectedDay;
+                              tempEnd = null;
+                            }
+                          });
+                        },
+                        onPageChanged: (focused) {
+                          setModalState(() => focusedDay = focused);
+                        },
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Spans of start/end dates
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (tempStart != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9F9FB), // light iOS-style grey
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Color(0xFFD1D1D6)), // ✅ iOS soft black border
+                              ),
+                              child: Row(
+                                children: [
+                                  const Text(
+                                    "Start: ",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF3A3A3C),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Text(
+                                    "${tempStart!.toLocal().toString().split(' ')[0]}",
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (tempEnd != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9F9FB),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Color(0xFFD1D1D6)), // ✅ border
+                              ),
+                              child: Row(
+                                children: [
+                                  const Text(
+                                    "End: ",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF3A3A3C),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Text(
+                                    "${tempEnd!.toLocal().toString().split(' ')[0]}",
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // Confirm Button (50% width)
+                      FractionallySizedBox(
+                        widthFactor: 0.5, // ✅ 50% of screen width
+                        child: ElevatedButton(
+                          onPressed: (tempStart != null && tempEnd != null)
+                              ? () {
+                            setState(() {
+                              blockStartDate = tempStart!;
+                              blockEndDate = tempEnd!;
+                            });
+                            Navigator.pop(context);
+                          }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: (tempStart != null && tempEnd != null)
+                                ? const Color(0xFF3A3A3C)
+                                : Colors.grey.shade300,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            "Confirm",
+                            style: TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildInput(String label, TextEditingController controller,
       IconData icon,
       {bool isObscured = false, VoidCallback? onTapSuffix, IconData? suffixIcon}) {
@@ -224,67 +475,214 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   }
 
   Widget _buildLimitSection() {
+    final double maxLimit =
+    selectedLimitType != null ? (maxLimitByType[selectedLimitType!.label] ?? 5000) : 5000;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle("Manage Limits"),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: CustomDropdown(
-            icon: Icons.tune,
-            selectedItem: selectedLimitType,
-            items: limitTypes,
-            onChanged: (value) {
-              setState(() => selectedLimitType = value);
-              _scrollToBottom(); // << ADDED
-            },
-            label: '',
+
+        Opacity(
+          opacity: isBlocked ? 0.4 : 1,
+          child: IgnorePointer(
+            ignoring: isBlocked,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: CustomDropdown(
+                icon: Icons.tune,
+                selectedItem: selectedLimitType,
+                items: limitTypes,
+                onChanged: (value) {
+                  setState(() {
+                    selectedLimitType = value;
+                    selectedLimit = min(selectedLimit, maxLimitByType[value.label] ?? 500);
+                  });
+                  _scrollToBottom();
+                },
+                label: '',
+              ),
+            ),
           ),
         ),
+
         if (selectedLimitType != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F7),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFD1D1D6)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Opacity(
+              opacity: isBlocked ? 0.4 : 1,
+              child: IgnorePointer(
+                ignoring: isBlocked,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F2F7),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFD1D1D6)),
+                  ),
+                  child: Column(
                     children: [
-                      const Text(
-                        "Spending Limit",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF1C1C1E),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Spending Limit",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1C1C1E),
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 350),
+                                transitionBuilder: (child, animation) {
+                                  final fade = FadeTransition(opacity: animation, child: child);
+                                  final slide = SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0.0, 0.2),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: fade,
+                                  );
+                                  return slide;
+                                },
+                                child: Text(
+                                  "\$${(isBlocked ? 0 : selectedLimit).toInt()}",
+                                  key: ValueKey<int>((isBlocked ? 0 : selectedLimit).toInt()),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: _limitColor(selectedLimit),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.info_outline, size: 13, color: Colors.grey),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    "Max: \$${maxLimit.toInt()}",
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          activeTrackColor: Colors.blueAccent,
+                          inactiveTrackColor: Colors.grey.shade300,
+                          trackHeight: 6,
+                          thumbColor: Colors.white,
+                          overlayColor: Colors.blue.withOpacity(0.2),
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                        ),
+                        child: Slider(
+                          value: selectedLimit.clamp(0, maxLimit),
+                          min: 0,
+                          max: maxLimit,
+                          onChanged: (val) {
+                            setState(() => selectedLimit = val.clamp(0, maxLimit));
+                          },
                         ),
                       ),
-                      Text(
-                        "\$${selectedLimit.toInt()}",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: _limitColor(selectedLimit),
-                        ),
+                      _buildAvailableLimitMessage(
+                        isBlocked ? 0 : selectedLimit,
+                        maxLimit,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  LimitSliderWidget(
-                    currentValue: selectedLimit,
-                    maxValue: 5000,
-                    onChanged: (val) => setState(() => selectedLimit = val),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildAvailableLimitMessage(double selected, double max) {
+    final double remaining = max - selected;
+    final double percentUsed = selected / max;
+
+    IconData icon;
+    Color color;
+    String message;
+
+    if (percentUsed >= 1.0) {
+      icon = Icons.block;
+      color = Colors.redAccent;
+      message = "Limit Reached";
+    } else if (percentUsed >= 0.7) {
+      icon = Icons.warning_amber_rounded;
+      color = Colors.orangeAccent;
+      message = "Almost Reached – \$${remaining.toInt()} left";
+    } else {
+      icon = Icons.check_circle;
+      color = Colors.green;
+      message = "Available: \$${remaining.toInt()}";
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Center(
+        child: Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withOpacity(0.4),
+                color.withOpacity(0.07),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(color: color.withOpacity(0.25)),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                    letterSpacing: 0.3,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -314,17 +712,57 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                 Icon(Icons.lock_rounded, color: Colors.grey.shade700, size: 20),
                 const SizedBox(width: 12),
                 const Expanded(
-                  child: Text("Block this card",
-                      style: TextStyle(fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87)),
+                  child: Text(
+                    "Block this card",
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+                  ),
                 ),
                 UltraSwitch(
                   value: isBlocked,
                   onChanged: (val) {
-                    setState(() => isBlocked = val);
-                    if (val) _scrollToBottom(); // << ADDED
+                    setState(() {
+                      isBlocked = val;
+
+                      if (!val) {
+                        blockReason = null;
+                        blockStartDate = null;
+                        blockEndDate = null;
+                        isPermanent = false;
+                        showRequestCard = false;
+                      } else {
+                        _scrollToBottom();
+
+                        if (blockReason == null) {
+                          Future.delayed(const Duration(milliseconds: 300), () {
+                            showCupertinoGlassToast(
+                              context,
+                              "You must choose a reason within 15 seconds or the block will be cancelled.",
+                              isSuccess: false,
+                              position: ToastPosition.top,
+                            );
+                          });
+
+                          // ⏳ Auto-turn off after 15 seconds if no reason is selected
+                          Future.delayed(const Duration(seconds: 15), () {
+                            if (mounted && blockReason == null && isBlocked) {
+                              setState(() {
+                                isBlocked = false;
+                              });
+
+                              // Optional: show cancellation toast
+                              showCupertinoGlassToast(
+                                context,
+                                "Blocking has been cancelled due to no reason being selected.",
+                                isSuccess: false,
+                                position: ToastPosition.top,
+                              );
+                            }
+                          });
+                        }
+                      }
+                    });
                   },
+
                   activeColor: Colors.redAccent,
                 ),
               ],
@@ -336,20 +774,533 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           child: isBlocked
-              ? buildLabeledField(
-            "Reason for Blocking",
-            CustomDropdown(
-              key: ValueKey(blockReason?.label ?? 'none'),
-              icon: Icons.warning_amber_rounded,
-              selectedItem: blockReason,
-              items: blockReasons,
-              onChanged: (value) => setState(() => blockReason = value),
-              label: '',
-            ),
+              ? Column(
+            children: [
+              buildLabeledField(
+                "Reason for Blocking",
+                Column(
+                  children: [
+                    CustomDropdown(
+                      key: ValueKey(blockReason?.label ?? 'none'),
+                      icon: Icons.warning_amber_rounded,
+                      selectedItem: blockReason,
+                      items: blockReasons,
+                      onChanged: (value) {
+                        final isTempSelected = blockReason?.label == 'Temporary Block' &&
+                            blockStartDate != null && blockEndDate != null;
+                        final isPermanentSelected = blockReason?.label == 'Permanent Block';
+                        final isLostStolenDamaged = blockReason?.label == 'Card Lost – Cannot Find It' ||
+                            blockReason?.label == 'Card Stolen – Unauthorized Use' ||
+                            blockReason?.label == 'Card Damaged – Not Functional';
+
+                        final isTryingToChangeFromPermanent = isPermanentSelected && value.label != 'Permanent Block';
+                        final isTryingToChangeFromSpecial = isLostStolenDamaged && value.label != blockReason?.label;
+
+                        if (isTempSelected && value.label != 'Temporary Block') {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Clear the temporary block first before changing reason."),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (isTryingToChangeFromPermanent) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Clear the permanent block first before changing reason."),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (isTryingToChangeFromSpecial) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Clear the current block reason before selecting another."),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
+
+                        setState(() {
+                          blockReason = value;
+                          showRequestCard = false;
+                          isPermanent = false;
+                          blockStartDate = null;
+                          blockEndDate = null;
+
+                          switch (value.label) {
+                            case 'Temporary Block':
+                              _pickBlockDates();
+                              break;
+                            case 'Permanent Block':
+                              isPermanent = true;
+                              break;
+                            case 'Card Lost – Cannot Find It':
+                            case 'Card Stolen – Unauthorized Use':
+                            case 'Card Damaged – Not Functional':
+                              isPermanent = true;
+                              showRequestCard = true;
+                              break;
+                          }
+                        });
+                      },
+                      label: '',
+                    ),
+
+                    if (blockReason != null || blockStartDate != null || blockEndDate != null) ...[
+                      const SizedBox(height: 12),
+
+                      if (blockReason?.label == 'Temporary Block' &&
+                          blockStartDate != null &&
+                          blockEndDate != null)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFFF1F1), Color(0xFFFFE2E2)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.date_range, size: 18, color: Colors.redAccent),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Blocked from ${_formatDate(blockStartDate!)} to ${_formatDate(blockEndDate!)}',
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      if (isPermanent || showRequestCard)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFFE8E8), Color(0xFFFFD1D1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  "This card will be permanently deactivated.",
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          // Clear Reason Button
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF2F2F5), Color(0xFFEAEAEC)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: Color(0xFFB3B3B7), width: 0.9), // Light iOS black
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  blockReason = null;
+                                  blockStartDate = null;
+                                  blockEndDate = null;
+                                  showRequestCard = false;
+                                  isPermanent = false;
+                                });
+                              },
+                              icon: const Icon(Icons.close, size: 16, color: Colors.black87),
+                              label: const Text(
+                                "Clear Reason",
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14.5,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                                backgroundColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                              ),
+                            ),
+                          ),
+
+                          // Request New Card Button
+                          if (showRequestCard)
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF72B2FF), Color(0xFF007AFF)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: Color(0xFFB3B3B7), width: 0.9),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blueAccent.withOpacity(0.08),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("New card request sent.")),
+                                  );
+                                },
+                                icon: const Icon(Icons.credit_card_rounded, size: 18),
+                                label: const Text(
+                                  "Request New Card",
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor: Colors.transparent,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                                ),
+                              ),
+                            ),
+
+                          // Cancel/Delete Card Button
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF6B6B), Color(0xFFEB3B3B)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: Color(0xFFB3B3B7), width: 0.9),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.redAccent.withOpacity(0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: true,
+                                  builder: (context) => Dialog(
+                                    backgroundColor: Colors.transparent,
+                                    insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          colors: [Color(0xFFF2F2F5), Color(0xFFEAEAEC)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        borderRadius: BorderRadius.circular(24),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.05),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 6),
+                                          )
+                                        ],
+                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.warning_amber_rounded, size: 40, color: Colors.redAccent),
+                                          const SizedBox(height: 16),
+                                          const Text(
+                                            "Delete Card",
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.black87,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          const Text(
+                                            "Are you sure you want to cancel this card permanently?",
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.black54,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 24),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: TextButton(
+                                                  style: TextButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                                    backgroundColor: const Color(0xFFD1D1D6), // darker iOS grey
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(14),
+                                                    ),
+                                                  ),
+                                                  onPressed: () => Navigator.pop(context),
+                                                  child: const Text(
+                                                    "Cancel",
+                                                    style: TextStyle(
+                                                      color: Colors.black, // darker text
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 15,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: TextButton(
+                                                  style: TextButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                                    backgroundColor: Colors.redAccent,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(14),
+                                                    ),
+                                                  ),
+                                                  onPressed: () {
+                                                    Navigator.pop(context);
+                                                    // TODO: Handle deletion
+                                                  },
+                                                  child: const Text(
+                                                    "Delete",
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 15,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.delete_forever, size: 18),
+                              label: const Text(
+                                "Cancel / Delete Card",
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                backgroundColor: Colors.transparent,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                              ),
+                            ),
+
+                          ),
+                        ],
+
+                      ),
+                    ]
+                  ],
+                ),
+              ),
+            ],
           )
               : const SizedBox.shrink(key: ValueKey("empty")),
         ),
       ],
+    );
+  }
+
+  Widget _buildContactlessToggle() {
+    final isDisabled = isBlocked;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+      child: Opacity(
+        opacity: isDisabled ? 0.4 : 1,
+        child: IgnorePointer(
+          ignoring: isDisabled,
+          child: Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E5EA),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFD1D1D6)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.nfc, color: Colors.grey.shade700, size: 20),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    "Contactless Payments",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                UltraSwitch(
+                  value: isBlocked ? false : isContactlessEnabled,
+                  onChanged: (val) {
+                    setState(() => isContactlessEnabled = val);
+                  },
+                  activeColor: Colors.blueAccent,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEcommerceToggle() {
+    final isDisabled = isBlocked;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+      child: Opacity(
+        opacity: isDisabled ? 0.4 : 1,
+        child: IgnorePointer(
+          ignoring: isDisabled,
+          child: Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E5EA),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFD1D1D6)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.shopping_cart_checkout, color: Colors.grey.shade700, size: 20),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    "E-Commerce Payments",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                UltraSwitch(
+                  value: isBlocked ? false : isEcommerceEnabled,
+                  onChanged: (val) {
+                    setState(() => isEcommerceEnabled = val);
+                  },
+                  activeColor: Colors.blueAccent,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTpeToggle() {
+    final isDisabled = isBlocked;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+      child: Opacity(
+        opacity: isDisabled ? 0.4 : 1,
+        child: IgnorePointer(
+          ignoring: isDisabled,
+          child: Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E5EA),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFD1D1D6)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.point_of_sale, color: Colors.grey.shade700, size: 20),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    "TPE Payments",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                UltraSwitch(
+                  value: isBlocked ? false : isTpePaymentEnabled,
+                  onChanged: (val) {
+                    setState(() => isTpePaymentEnabled = val);
+                  },
+                  activeColor: Colors.blueAccent,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -621,6 +1572,10 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
               _buildCard(),
               _buildInfoSection(),
               _buildLimitSection(),
+              _buildSectionTitle("Security Settings"),
+              _buildContactlessToggle(),
+              _buildEcommerceToggle(),
+              _buildTpeToggle(),
               _buildBlockCardSection(),
               const SizedBox(height: 40),
             ],
@@ -631,5 +1586,11 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     );
   }
 
+  String _formatDate(DateTime date) {
+    return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
+  }
 
 }
+
+
+
