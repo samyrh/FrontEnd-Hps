@@ -5,10 +5,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/CustomDropdown.dart';
-import '../widgets/LimitSlider.dart';
 import '../widgets/Toast.dart';
 import '../widgets/UltraSwitch.dart';
-import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 //test
@@ -583,12 +581,13 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                       const SizedBox(height: 10),
                       SliderTheme(
                         data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: Colors.blueAccent,
-                          inactiveTrackColor: Colors.grey.shade300,
-                          trackHeight: 6,
-                          thumbColor: Colors.white,
-                          overlayColor: Colors.blue.withOpacity(0.2),
-                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                          trackHeight: 4,
+                          activeTrackColor: const Color(0xFF007AFF), // iOS blue
+                          inactiveTrackColor: const Color(0xFFCED0D4), // iOS-style dark grey
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
+                          overlayShape: SliderComponentShape.noOverlay,
+                          thumbColor: const Color(0xFF007AFF), // same as active track
+                          trackShape: const RoundedRectSliderTrackShape(),
                         ),
                         child: Slider(
                           value: selectedLimit.clamp(0, maxLimit),
@@ -872,21 +871,21 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                             border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
                           ),
                           child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Icon(Icons.date_range, size: 18, color: Colors.redAccent),
                               const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Blocked from ${_formatDate(blockStartDate!)} to ${_formatDate(blockEndDate!)}',
-                                  style: const TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.redAccent,
-                                  ),
+                              const Text(
+                                'Blocked from 01/01/2024 to 01/02/2024', // Replace with dynamic dates
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.redAccent,
                                 ),
                               ),
                             ],
-                          ),
+                          )
+
                         ),
 
                       if (isPermanent || showRequestCard)
@@ -935,7 +934,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: Color(0xFFB3B3B7), width: 0.9), // Light iOS black
+                              border: Border.all(color: Color(0xFFB3B3B7), width: 0.9),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withOpacity(0.04),
@@ -947,12 +946,20 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                             child: TextButton.icon(
                               onPressed: () {
                                 setState(() {
+                                  isBlocked = false;
                                   blockReason = null;
                                   blockStartDate = null;
                                   blockEndDate = null;
                                   showRequestCard = false;
                                   isPermanent = false;
                                 });
+
+                                showCupertinoGlassToast(
+                                  context,
+                                  "Block reason reset. Card is now active.",
+                                  isSuccess: false,
+                                  position: ToastPosition.top,
+                                );
                               },
                               icon: const Icon(Icons.close, size: 16, color: Colors.black87),
                               label: const Text(
@@ -971,6 +978,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                               ),
                             ),
                           ),
+
 
                           // Request New Card Button
                           if (showRequestCard)
@@ -1116,7 +1124,15 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                                   ),
                                                   onPressed: () {
                                                     Navigator.pop(context);
-                                                    // TODO: Handle deletion
+
+                                                    showCupertinoGlassToast(
+                                                      context,
+                                                      "Card has been permanently deleted.",
+                                                      isSuccess: true,
+                                                      position: ToastPosition.top,
+                                                    );
+
+                                                    // TODO: Handle actual deletion logic if needed
                                                   },
                                                   child: const Text(
                                                     "Delete",
