@@ -1651,39 +1651,95 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    final bounceScale = _scrollController.hasClients && _scrollController.offset < 0
+        ? 1.0 - (_scrollController.offset / -150)
+        : 1.0;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      extendBodyBehindAppBar: false,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const BackButton(color: Colors.black),
-        title: const Text(
-          'Card Details',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1E1E2D),
-            fontFamily: 'Inter',
-          ),
-        ),
-        centerTitle: true,
-      ),
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          ListView(
-            controller: _scrollController,
-            padding: const EdgeInsets.only(top: 16),
-            children: [
-              _buildCard(),
-              _buildInfoSection(),
-              _buildLimitSection(),
-              _buildSectionTitle("Security Settings"),
-              _buildEcommerceToggle(),
-              _buildBlockCardSection(),
-              const SizedBox(height: 40),
-            ],
+          // 🌈 Gradient Background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [
+                  Color(0xFFD6F2F0),
+                  Color(0xFFE3E4F7),
+                  Color(0xFFF5F6FA),
+                  Color(0xFFFFF1F3),
+                  Color(0xFFE0F7FA),
+                ],
+              ),
+            ),
           ),
+
+          // 🧊 Frosted Glass Blur Layer
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 200, sigmaY: 200),
+            child: Container(
+              color: Colors.white.withOpacity(0.08),
+            ),
+          ),
+
+          // 📜 Scrollable Content
+          Padding(
+            padding: EdgeInsets.only(top: topPadding + kToolbarHeight + 16),
+            child: ListView(
+              controller: _scrollController,
+              padding: const EdgeInsets.only(bottom: 40),
+              children: [
+                AnimatedScale(
+                  scale: bounceScale.clamp(0.96, 1.02),
+                  duration: const Duration(milliseconds: 100),
+                  curve: Curves.easeOut,
+                  child: _buildCard(),
+                ),
+                _buildInfoSection(),
+                _buildLimitSection(),
+                _buildSectionTitle("Security Settings"),
+                _buildEcommerceToggle(),
+                _buildBlockCardSection(),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+
+          // 🧭 Fixed Title Header
+          Positioned(
+            top: topPadding,
+            left: 0,
+            right: 0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: const [
+                  BackButton(color: Colors.black),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Card Details',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 48),
+                ],
+              ),
+            ),
+          ),
+
+          // 🔐 PIN Popup
           if (showPinPopup) _buildPinPopup(),
         ],
       ),
