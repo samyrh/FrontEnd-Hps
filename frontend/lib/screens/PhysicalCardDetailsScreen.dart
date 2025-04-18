@@ -718,50 +718,172 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                 ),
                 UltraSwitch(
                   value: isBlocked,
-                  onChanged: (val) {
-                    setState(() {
-                      isBlocked = val;
+                  onChanged: (val) async {
+                    if (!val && blockReason != null) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: true,
+                        builder: (context) => Dialog(
+                          backgroundColor: Colors.transparent,
+                          insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF2F2F5), Color(0xFFEAEAEC)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.warning_amber_rounded, size: 40, color: Colors.redAccent),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  "Unblock Card",
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black87,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 12),
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      const TextSpan(
+                                        text: "Turning off the block will cancel the reason:\n\n",
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: "🛑  ${blockReason!.label}",
+                                        style: const TextStyle(
+                                          fontSize: 16.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.redAccent,
+                                          height: 1.6,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 24),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextButton(
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                          backgroundColor: const Color(0xFFD1D1D6),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(14),
+                                          ),
+                                        ),
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text(
+                                          "Cancel",
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextButton(
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                          backgroundColor: Colors.redAccent,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(14),
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                          setState(() {
+                                            isBlocked = false;
+                                            blockReason = null;
+                                            blockStartDate = null;
+                                            blockEndDate = null;
+                                            isPermanent = false;
+                                            showRequestCard = false;
+                                          });
 
-                      if (!val) {
-                        blockReason = null;
-                        blockStartDate = null;
-                        blockEndDate = null;
-                        isPermanent = false;
-                        showRequestCard = false;
-                      } else {
-                        _scrollToBottom();
+                                          showCupertinoGlassToast(
+                                            context,
+                                            "Card unblocked and reason cleared.",
+                                            isSuccess: true,
+                                            position: ToastPosition.top,
+                                          );
+                                        },
+                                        child: const Text(
+                                          "Unblock",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    } else {
+                      setState(() {
+                        isBlocked = val;
 
-                        if (blockReason == null) {
-                          Future.delayed(const Duration(milliseconds: 300), () {
-                            showCupertinoGlassToast(
-                              context,
-                              "You must choose a reason within 15 seconds or the block will be cancelled.",
-                              isSuccess: false,
-                              position: ToastPosition.top,
-                            );
-                          });
+                        if (val) {
+                          _scrollToBottom();
 
-                          // ⏳ Auto-turn off after 15 seconds if no reason is selected
-                          Future.delayed(const Duration(seconds: 15), () {
-                            if (mounted && blockReason == null && isBlocked) {
-                              setState(() {
-                                isBlocked = false;
-                              });
-
-                              // Optional: show cancellation toast
+                          if (blockReason == null) {
+                            Future.delayed(const Duration(milliseconds: 300), () {
                               showCupertinoGlassToast(
                                 context,
-                                "Blocking has been cancelled due to no reason being selected.",
+                                "You must choose a reason within 15 seconds or the block will be cancelled.",
                                 isSuccess: false,
                                 position: ToastPosition.top,
                               );
-                            }
-                          });
-                        }
-                      }
-                    });
-                  },
+                            });
 
+                            Future.delayed(const Duration(seconds: 15), () {
+                              if (mounted && blockReason == null && isBlocked) {
+                                setState(() => isBlocked = false);
+                                showCupertinoGlassToast(
+                                  context,
+                                  "Blocking has been cancelled due to no reason being selected.",
+                                  isSuccess: false,
+                                  position: ToastPosition.top,
+                                );
+                              }
+                            });
+                          }
+                        }
+                      });
+                    }
+                  },
                   activeColor: Colors.redAccent,
                 ),
               ],
@@ -1558,52 +1680,115 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     _scrollController.dispose(); // << Dispose controller
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+
+    final fadeOpacity = _scrollController.hasClients
+        ? max(0.85, 1 - (_scrollController.offset.clamp(0.0, 100.0) / 100))
+        : 1.0;
+
+    final bounceScale = _scrollController.hasClients && _scrollController.offset < 0
+        ? 1.0 - (_scrollController.offset / -150)
+        : 1.0;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      extendBodyBehindAppBar: false,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const BackButton(color: Colors.black),
-        title: const Text(
-          'Card Details',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1E1E2D),
-            fontFamily: 'Inter',
-          ),
-        ),
-        centerTitle: true,
-      ),
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          ListView(
-            controller: _scrollController,
-            padding: const EdgeInsets.only(top: 16),
-            children: [
-              _buildCard(),
-              _buildInfoSection(),
-              _buildLimitSection(),
-              _buildSectionTitle("Security Settings"),
-              _buildContactlessToggle(),
-              _buildEcommerceToggle(),
-              _buildTpeToggle(),
-              _buildBlockCardSection(),
-              const SizedBox(height: 40),
-            ],
+          // 🎨 Full-Screen Gradient
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [
+                  Color(0xFFD6F2F0),
+                  Color(0xFFE3E4F7),
+                  Color(0xFFF5F6FA),
+                ],
+              ),
+            ),
           ),
+
+          // 🧊 Frosted Glass Blur Layer
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 200, sigmaY: 200),
+            child: Container(
+              color: Colors.white.withOpacity(0.08),
+            ),
+          ),
+
+          // 📜 Scrollable content under the header
+          Padding(
+            padding: EdgeInsets.only(top: topPadding + kToolbarHeight + 16),
+            child: NotificationListener<OverscrollIndicatorNotification>(
+              onNotification: (notification) {
+                notification.disallowIndicator();
+                return true;
+              },
+              child: ListView(
+                controller: _scrollController,
+                padding: const EdgeInsets.only(bottom: 40),
+                children: [
+                  AnimatedScale(
+                    scale: bounceScale.clamp(0.96, 1.02),
+                    duration: const Duration(milliseconds: 100),
+                    curve: Curves.easeOut,
+                    child: _buildCard(),
+                  ),
+                  _buildInfoSection(),
+                  _buildLimitSection(),
+                  _buildSectionTitle("Security Settings"),
+                  _buildContactlessToggle(),
+                  _buildEcommerceToggle(),
+                  _buildTpeToggle(),
+                  _buildBlockCardSection(),
+                ],
+              ),
+            ),
+          ),
+
+          // 🧭 Manual Header with Fade
+          Positioned(
+            top: topPadding,
+            left: 0,
+            right: 0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  const BackButton(color: Colors.black),
+                  Expanded(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: fadeOpacity.clamp(0.6, 1.0), // ✅ fade but never fully invisible
+                      child: const Center(
+                        child: Text(
+                          'Card Details',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                            color: Colors.black,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+          ),
+
+          // 🔐 PIN Popup
           if (showPinPopup) _buildPinPopup(),
         ],
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
   }
 
 }
