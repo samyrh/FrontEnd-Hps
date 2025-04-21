@@ -38,7 +38,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   bool showRequestCard = false;
   bool isPermanent = false;
   bool confirmedPermanentBlock = false;
-
+  bool lostConfirmed = false;
+  bool hasRequestedNewCard = false;
+  DateTime? requestedNewCardDate;
 
   final TextEditingController _cvvController = TextEditingController(
       text: '•••');
@@ -814,6 +816,198 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ],
     );
   }
+  void _showPermanentBlockDialog() {
+    if (!context.mounted) return;
+
+    showGeneralDialog(
+      context: context,
+      barrierLabel: "Permanent Block",
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.35),
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox(),
+      transitionBuilder: (context, animation, secondaryAnimation, _) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInCubic,
+        );
+
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(curved),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 35, sigmaY: 35),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(24, 30, 24, 26),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF5F5F7), Color(0xFFE3E3E5)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFE8E8), Color(0xFFFFCCCC)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: const Icon(Icons.cancel_rounded, size: 64, color: Colors.redAccent),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        "Permanent Block Activated",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1C1C1E),
+                          letterSpacing: -0.3,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          "This card will be permanently disabled.\nAll transactions and actions will be blocked.",
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF3A3A3C),
+                            height: 1.55,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 20),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFf7f7f7), Color(0xFFe0e0e0)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: Color(0xFFDDDDDD)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: const [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text("Cardholder", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF555555))),
+                                Text("Nada S. Rhandor", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text("Card Number", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF555555))),
+                                Text("•••• •••• •••• 345", style: TextStyle(fontSize: 13.8, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text("Status", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF555555))),
+                                Text("Disabled", style: TextStyle(fontSize: 13.8, fontWeight: FontWeight.w700, color: Colors.redAccent)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                backgroundColor: const Color(0xFFD1D1D6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                setState(() {
+                                  isBlocked = false;
+                                  blockReason = null;
+                                  isPermanent = false;
+                                  confirmedPermanentBlock = false;
+                                  showRequestCard = false;
+                                  blockStartDate = null;
+                                  blockEndDate = null;
+                                });
+
+                                showCupertinoGlassToast(
+                                  context,
+                                  "Block cancelled. Card active.",
+                                  isSuccess: true,
+                                  position: ToastPosition.top,
+                                );
+                              },
+                              child: const Text("Cancel", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                backgroundColor: Colors.redAccent,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                              child: const Text("Understood", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildAvailableLimitMessage(double selected, double max) {
     final double remaining = max - selected;
@@ -887,11 +1081,424 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
+  Widget _buildClearReasonButton() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF2F2F5), Color(0xFFEAEAEC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Color(0xFFB3B3B7), width: 0.9),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextButton.icon(
+        onPressed: () {
+          final today = DateTime.now();
+
+          if (blockReason?.label == 'Temporary Block' &&
+              blockEndDate != null &&
+              today.isBefore(blockEndDate!)) {
+            showCupertinoGlassToast(
+              context,
+              "You can't reset this block until the end date.",
+              isSuccess: false,
+              position: ToastPosition.top,
+            );
+            return;
+          }
+
+          setState(() {
+            isBlocked = false;
+            blockReason = null;
+            blockStartDate = null;
+            blockEndDate = null;
+            showRequestCard = false;
+            isPermanent = false;
+            confirmedPermanentBlock = false;
+          });
+
+          showCupertinoGlassToast(
+            context,
+            "Block reason reset. Card is now active.",
+            isSuccess: false,
+            position: ToastPosition.top,
+          );
+        },
+        icon: const Icon(Icons.close, size: 16, color: Colors.black87),
+        label: const Text(
+          "Clear Reason",
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.w600,
+            fontSize: 14.5,
+            letterSpacing: 0.2,
+          ),
+        ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          backgroundColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+      ),
+    );
+  }
+  void _showRequestConfirmationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF5F5F8), Color(0xFFE3E3E8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE6FDEB), Color(0xFFC9F0D7)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.25),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.mark_email_read_outlined, size: 44, color: Colors.green),
+                  ),
+                  const SizedBox(height: 26),
+                  const Text(
+                    "Request Confirmed",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1C1C1E),
+                      letterSpacing: -0.2,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _iosInfoSpan("Cardholder", "Nada S. Rhandor"),
+                      _iosInfoSpan("Card", "•••• •••• •••• 345"),
+                      _iosInfoSpan("Phone", "+212 777****333"),
+                      _iosInfoSpan("Email", "rhalimsami8@gmail.com"),
+                    ],
+                  )
+                  ,
+
+                  const SizedBox(height: 20),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      "You’ll receive an email once your new card is ready for pickup at your agency.",
+                      style: TextStyle(
+                        fontSize: 14.7,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF3A3A3C),
+                        height: 1.55,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: const Color(0xFF007AFF),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      ),
+                      child: const Text(
+                        "Got it",
+                        style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                      ),
+                    ),
+                  ),
+                ]
+                ,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  void _showCardLostDialogs() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF8F8FB), Color(0xFFEFEFF5)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline_rounded, size: 46, color: Colors.redAccent),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Card Reported as Lost",
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Colors.black87),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "Hello Nada S. Rhandor,\n\nWe've marked your card as lost for security. This action has been forwarded to our internal fraud and card issuance department.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 15, color: Colors.black87, height: 1.5),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "To continue safely, you may request a new card. You’ll receive a confirmation email and be invited to retrieve your new card from the nearest banking agency.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14.5, color: Colors.black54, height: 1.55),
+                  ),
+                  const SizedBox(height: 26),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            backgroundColor: const Color(0xFFD1D1D6),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            setState(() {
+                              isBlocked = false;
+                              blockReason = null;
+                              showRequestCard = false;
+                              confirmedPermanentBlock = false;
+                            });
+                            showCupertinoGlassToast(
+                              context,
+                              "Block cancelled. Card restored.",
+                              isSuccess: true,
+                              position: ToastPosition.top,
+                            );
+                          },
+                          child: const Text("Cancel", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              setState(() {
+                                lostConfirmed = true;
+                                blockReason = blockReasons.firstWhere((item) => item.label == 'Card Lost – Cannot Find It');
+                                isBlocked = true;
+                                showRequestCard = true;
+                                blockStartDate = null;
+                                blockEndDate = null;
+                                isPermanent = true;
+                                confirmedPermanentBlock = false;
+                              });
+                              _scrollToBottom(); // optional: ensures the button is visible
+                            },
+                            child: const Text("Confirm", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Color _limitColor(double value) {
     if (value <= 1000) return const Color(0xFF34C759);
     if (value <= 3000) return const Color(0xFFFF9500);
     return const Color(0xFFFF3B30);
+  }
+  Widget _buildRequestNewCardButton({bool iOSStyle = false}) {
+    final bool isSent = hasRequestedNewCard;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: iOSStyle ? const Color(0xFFE5E5EA) : null,
+        gradient: iOSStyle
+            ? null
+            : const LinearGradient(
+          colors: [Color(0xFF72B2FF), Color(0xFF007AFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: iOSStyle ? const Color(0xFFB3B3B7) : Colors.transparent,
+          width: 0.9,
+        ),
+        boxShadow: iOSStyle
+            ? []
+            : [
+          BoxShadow(
+            color: Colors.blueAccent.withOpacity(0.08),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: isSent
+            ? null
+            : () {
+          _showRequestConfirmationDialog();
+          setState(() {
+            hasRequestedNewCard = true;
+            requestedNewCardDate = DateTime.now().add(const Duration(days: 7));
+          });
+        },
+        icon: Icon(
+          Icons.credit_card_rounded,
+          size: 18,
+          color: isSent ? Colors.grey : (iOSStyle ? Colors.black87 : Colors.white),
+        ),
+        label: Text(
+          isSent ? "Request Sent" : "Request New Card",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14.5,
+            color: isSent ? Colors.grey : (iOSStyle ? Colors.black87 : Colors.white),
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+      ),
+    );
+  }
+
+  Widget _iosInfoSpan(String label, String value) {
+    return SizedBox(
+      width: 220, // Fixed width to align all spans equally
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE0E0E5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Center( // 🔥 Center the text
+          child: RichText(
+            textAlign: TextAlign.center, // Also center multiline text if needed
+            text: TextSpan(
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF1C1C1E),
+                height: 1.4,
+              ),
+              children: [
+                TextSpan(
+                  text: "$label: ",
+                  style: const TextStyle(
+                    color: Color(0xFF8E8E93), // iOS muted grey
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildBlockCardSection() {
@@ -924,7 +1531,22 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   onChanged: (val) async {
                     final today = DateTime.now();
 
-                    // 🛑 Prevent unblocking for Temporary Block before end date
+                    // 🛑 1. Prevent disabling if card is marked lost
+                    if (!val && lostConfirmed && blockReason?.label == 'Card Lost – Cannot Find It') {
+                      showCupertinoGlassToast(
+                        context,
+                        "Card is lost. It stays blocked until your new card request is approved.",
+                        isSuccess: false,
+                        position: ToastPosition.top,
+                      );
+
+
+
+                      return;
+                    }
+
+
+                    // 🛑 2. Prevent unblocking if Temporary Block not finished
                     if (!val && blockReason != null) {
                       if (blockReason!.label == 'Temporary Block' &&
                           blockEndDate != null &&
@@ -938,7 +1560,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                         return;
                       }
 
-                      // ✅ Show unblock dialog
+                      // ✅ 3. Standard unblock confirmation modal
                       showDialog(
                         context: context,
                         barrierDismissible: true,
@@ -970,11 +1592,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                 const SizedBox(height: 16),
                                 const Text(
                                   "Unblock Card",
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black87,
-                                  ),
+                                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.black87),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 12),
@@ -983,11 +1601,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                     children: [
                                       const TextSpan(
                                         text: "Turning off the block will cancel the reason:\n\n",
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.black87,
-                                        ),
+                                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.black87),
                                       ),
                                       TextSpan(
                                         text: "🛑  ${blockReason!.label}",
@@ -1010,18 +1624,12 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                         style: TextButton.styleFrom(
                                           padding: const EdgeInsets.symmetric(vertical: 14),
                                           backgroundColor: const Color(0xFFD1D1D6),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14),
-                                          ),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                         ),
                                         onPressed: () => Navigator.pop(context),
                                         child: const Text(
                                           "Cancel",
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 15,
-                                          ),
+                                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600, fontSize: 15),
                                         ),
                                       ),
                                     ),
@@ -1031,9 +1639,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                         style: TextButton.styleFrom(
                                           padding: const EdgeInsets.symmetric(vertical: 14),
                                           backgroundColor: Colors.redAccent,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14),
-                                          ),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                         ),
                                         onPressed: () {
                                           Navigator.pop(context);
@@ -1044,6 +1650,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                             blockEndDate = null;
                                             isPermanent = false;
                                             showRequestCard = false;
+                                            lostConfirmed = false;
                                           });
 
                                           showCupertinoGlassToast(
@@ -1055,11 +1662,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                         },
                                         child: const Text(
                                           "Unblock",
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 15,
-                                          ),
+                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
                                         ),
                                       ),
                                     ),
@@ -1071,6 +1674,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                         ),
                       );
                     } else {
+                      // ✅ 4. Toggle ON logic
                       setState(() {
                         isBlocked = val;
 
@@ -1081,13 +1685,13 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                             Future.delayed(const Duration(milliseconds: 300), () {
                               showCupertinoGlassToast(
                                 context,
-                                "You must choose a reason within 15 seconds or the block will be cancelled.",
+                                "You must choose a reason within 10 minutes or the block will be cancelled.",
                                 isSuccess: false,
                                 position: ToastPosition.top,
                               );
                             });
 
-                            Future.delayed(const Duration(seconds: 15), () {
+                            Future.delayed(const Duration(minutes: 10), () {
                               if (mounted && blockReason == null && isBlocked) {
                                 setState(() => isBlocked = false);
                                 showCupertinoGlassToast(
@@ -1103,6 +1707,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                       });
                     }
                   },
+
                   activeColor: Colors.redAccent,
                 ),
               ],
@@ -1121,535 +1726,270 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                 Column(
                   children: [
                     IgnorePointer(
-                      ignoring: false, // Always allow interaction
+                      ignoring: false,
                       child: GestureDetector(
                         onTap: () {
                           if (confirmedPermanentBlock && blockReason?.label == 'Permanent Block') {
-                            if (isBlocked) {
-                              showCupertinoGlassToast(
-                                context,
-                                "To change the reason, please turn off the 'Block this card' option first.",
-                                isSuccess: false,
-                                position: ToastPosition.top,
-                              );
-                            } else {
-                              showCupertinoGlassToast(
-                                context,
-                                "You must unblock the card before changing the reason.",
-                                isSuccess: false,
-                                position: ToastPosition.top,
-                              );
-                            }
+                            showCupertinoGlassToast(
+                              context,
+                              "To change the reason, please turn off the 'Block this card' option first.",
+                              isSuccess: false,
+                              position: ToastPosition.top,
+                            );
                           }
                         },
                         child: AbsorbPointer(
                           absorbing: confirmedPermanentBlock && blockReason?.label == 'Permanent Block',
-                          child:CustomDropdown(
-                            key: ValueKey(blockReason?.label ?? 'none'),
-                            icon: Icons.warning_amber_rounded,
-                            selectedItem: blockReason,
-                            items: blockReasons,
-                            onChanged: (value) {
-                              final today = DateTime.now();
-
-                              final isTempStillActive = blockReason?.label == 'Temporary Block' &&
-                                  blockEndDate != null &&
-                                  today.isBefore(blockEndDate!) &&
-                                  value.label != 'Temporary Block';
-
-                              if (isTempStillActive) {
-                                showCupertinoGlassToast(
-                                  context,
-                                  "You can't change the reason until ${blockEndDate!.toLocal().toString().split(' ')[0]}",
-                                  isSuccess: false,
-                                  position: ToastPosition.top,
-                                );
-                                return;
-                              }
-
-                              final isPermanentSelected = blockReason?.label == 'Permanent Block';
-                              final isLostStolenDamaged = blockReason?.label == 'Card Lost – Cannot Find It' ||
-                                  blockReason?.label == 'Card Stolen – Unauthorized Use' ||
-                                  blockReason?.label == 'Card Damaged – Not Functional';
-
-                              final isTryingToChangeFromPermanent =
-                                  isPermanentSelected && value.label != 'Permanent Block' && confirmedPermanentBlock && isBlocked;
-                              final isTryingToChangeFromSpecial =
-                                  isLostStolenDamaged && value.label != blockReason?.label;
-
-                              if (isTryingToChangeFromPermanent) {
-                                showCupertinoGlassToast(
-                                  context,
-                                  "To change the reason, please turn off the 'Block this card' option first.",
-                                  isSuccess: false,
-                                  position: ToastPosition.top,
-                                );
-                                return;
-                              }
-
-                              if (isTryingToChangeFromSpecial) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("Clear the current block reason before selecting another."),
-                                    backgroundColor: Colors.redAccent,
-                                  ),
-                                );
-                                return;
-                              }
-
-                              if (value.label == 'Temporary Block') {
-                                setState(() {
-                                  blockReason = value;
-                                  showRequestCard = false;
-                                  isPermanent = false;
-                                  confirmedPermanentBlock = false;
-                                  blockStartDate = null;
-                                  blockEndDate = null;
-                                });
-                                _pickBlockDates();
-                                return;
-                              }
-
-                              if (value.label == 'Card Lost – Cannot Find It') {
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (_) => Dialog(
-                                    backgroundColor: Colors.transparent,
-                                    insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(24),
-                                      child: BackdropFilter(
-                                        filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(24),
-                                          decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [Color(0xFFF8F8FB), Color(0xFFEFEFF5)],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                            ),
-                                            borderRadius: BorderRadius.circular(24),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.06),
-                                                blurRadius: 14,
-                                                offset: const Offset(0, 5),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Icons.error_outline_rounded, size: 46, color: Colors.redAccent),
-                                              const SizedBox(height: 16),
-                                              const Text(
-                                                "Card Reported as Lost",
-                                                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Colors.black87),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                              const SizedBox(height: 14),
-                                              const Text(
-                                                "Hello Nada S. Rhandor,\n\nWe've marked your card as lost for security. This action has been forwarded to our internal fraud and card issuance department.",
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(fontSize: 15, color: Colors.black87, height: 1.5),
-                                              ),
-                                              const SizedBox(height: 12),
-                                              const Text(
-                                                "To continue safely, you may request a new card. You’ll receive a confirmation email and be invited to retrieve your new card from the nearest banking agency.",
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(fontSize: 14.5, color: Colors.black54, height: 1.55),
-                                              ),
-                                              const SizedBox(height: 26),
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: TextButton(
-                                                      style: TextButton.styleFrom(
-                                                        backgroundColor: const Color(0xFFD1D1D6),
-                                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                                      ),
-                                                      onPressed: () {
-                                                        Navigator.pop(context);
-                                                        setState(() {
-                                                          isBlocked = false;
-                                                          blockReason = null;
-                                                          showRequestCard = false;
-                                                          confirmedPermanentBlock = false;
-                                                        });
-                                                        showCupertinoGlassToast(
-                                                          context,
-                                                          "Block cancelled. Card restored.",
-                                                          isSuccess: true,
-                                                          position: ToastPosition.top,
-                                                        );
-                                                      },
-                                                      child: const Text("Cancel", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: TextButton(
-                                                      style: TextButton.styleFrom(
-                                                        backgroundColor: Colors.redAccent,
-                                                        padding: const EdgeInsets.symmetric(vertical: 14),
-                                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                                      ),
-                                                      onPressed: () {
-                                                        Navigator.pop(context);
-                                                        showDialog(
-                                                          context: context,
-                                                          barrierDismissible: true,
-                                                          builder: (_) => Dialog(
-                                                            backgroundColor: Colors.transparent,
-                                                            insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
-                                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                                                            child: ClipRRect(
-                                                              borderRadius: BorderRadius.circular(24),
-                                                              child: BackdropFilter(
-                                                                filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-                                                                child: Container(
-                                                                  padding: const EdgeInsets.all(24),
-                                                                  decoration: BoxDecoration(
-                                                                    gradient: const LinearGradient(
-                                                                      colors: [Color(0xFFF5F5F8), Color(0xFFE3E3E8)],
-                                                                      begin: Alignment.topLeft,
-                                                                      end: Alignment.bottomRight,
-                                                                    ),
-                                                                    borderRadius: BorderRadius.circular(24),
-                                                                    boxShadow: [
-                                                                      BoxShadow(
-                                                                        color: Colors.black.withOpacity(0.04),
-                                                                        blurRadius: 10,
-                                                                        offset: const Offset(0, 4),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                  child:Column(
-                                                                    mainAxisSize: MainAxisSize.min,
-                                                                    children: [
-                                                                      Container(
-                                                                        padding: const EdgeInsets.all(20),
-                                                                        decoration: BoxDecoration(
-                                                                          shape: BoxShape.circle,
-                                                                          gradient: const LinearGradient(
-                                                                            colors: [Color(0xFFE4FBE9), Color(0xFFD5F5E3)],
-                                                                            begin: Alignment.topLeft,
-                                                                            end: Alignment.bottomRight,
-                                                                          ),
-                                                                          boxShadow: [
-                                                                            BoxShadow(
-                                                                              color: Colors.green.withOpacity(0.2),
-                                                                              blurRadius: 12,
-                                                                              offset: const Offset(0, 4),
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                        child: const Icon(Icons.mark_email_read_outlined, size: 42, color: Colors.green),
-                                                                      ),
-                                                                      const SizedBox(height: 22),
-                                                                      const Text(
-                                                                        "New Card Request Confirmed",
-                                                                        style: TextStyle(
-                                                                          fontSize: 19,
-                                                                          fontWeight: FontWeight.w800,
-                                                                          color: Color(0xFF1C1C1E),
-                                                                          letterSpacing: -0.3,
-                                                                        ),
-                                                                        textAlign: TextAlign.center,
-                                                                      ),
-                                                                      const SizedBox(height: 16),
-                                                                      const Padding(
-                                                                        padding: EdgeInsets.symmetric(horizontal: 6),
-                                                                        child: Text(
-                                                                          "Cardholder: Nada S. Rhandor\nCard: •••• •••• •••• 345\nPhone: +212 777****333\n\nYour request has been received. We’ll notify you by email once your new card is available for pickup at the nearest banking agency.",
-                                                                          style: TextStyle(
-                                                                            fontSize: 15,
-                                                                            fontWeight: FontWeight.w500,
-                                                                            color: Color(0xFF3A3A3C),
-                                                                            height: 1.55,
-                                                                          ),
-                                                                          textAlign: TextAlign.center,
-                                                                        ),
-                                                                      ),
-                                                                      const SizedBox(height: 28),
-                                                                      SizedBox(
-                                                                        width: double.infinity,
-                                                                        child: ElevatedButton(
-                                                                          onPressed: () => Navigator.pop(context),
-                                                                          style: ElevatedButton.styleFrom(
-                                                                            elevation: 0,
-                                                                            padding: const EdgeInsets.symmetric(vertical: 16),
-                                                                            backgroundColor: const Color(0xFF007AFF),
-                                                                            foregroundColor: Colors.white,
-                                                                            shape: RoundedRectangleBorder(
-                                                                              borderRadius: BorderRadius.circular(16),
-                                                                            ),
-                                                                          ),
-                                                                          child: const Text(
-                                                                            "Got it",
-                                                                            style: TextStyle(
-                                                                              fontSize: 16,
-                                                                              fontWeight: FontWeight.w600,
-                                                                              letterSpacing: 0.3,
-                                                                            ),
-                                                                          ),
-                                                                        ),
-                                                                      ),
-                                                                    ],
-                                                                  )
-
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                      child: const Text("Request New Card", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-
-                                setState(() {
-                                  blockReason = value;
-                                  isBlocked = true;
-                                  confirmedPermanentBlock = false;
-                                  showRequestCard = false;
-                                  isPermanent = true;
-                                  blockStartDate = null;
-                                  blockEndDate = null;
-                                });
-                                return;
-                              }
-
-                              // Default case (other reasons)
-                              setState(() {
-                                blockReason = value;
-                                isPermanent = true;
-                                showRequestCard = true;
-                                confirmedPermanentBlock = false;
-                                blockStartDate = null;
-                                blockEndDate = null;
-                              });
-
-                              Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
-                            },
-                            label: '',
-                          )
-
-                        ),
-                      ),
-                    ),
-                    if ((blockReason != null || blockStartDate != null || blockEndDate != null) && !confirmedPermanentBlock) ...[
-                      const SizedBox(height: 12),
-
-                      if (blockReason?.label == 'Temporary Block' &&
-                          blockStartDate != null &&
-                          blockEndDate != null)
-                        Builder(
-                          builder: (context) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              _scrollToBottom();
-                            });
-
-                            return Container(
-                              width: double.infinity,
-                              margin: const EdgeInsets.only(bottom: 14),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFFFF1F1), Color(0xFFFFE2E2)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.date_range, size: 18, color: Colors.redAccent),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Blocked from ${blockStartDate!.toLocal().toString().split(' ')[0]} to ${blockEndDate!.toLocal().toString().split(' ')[0]}',
-                                    style: const TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.redAccent,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-
-                      if (isPermanent || showRequestCard)
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 14),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFFE8E8), Color(0xFFFFD1D1)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
-                          ),
-                          child: Row(
-                            children: const [
-                              Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  "This card will be permanently deactivated.",
-                                  style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.redAccent,
-                                  ),
-                                ),
-                              )
-                            ],
-                          ),
-                        ),
-
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          if (!(blockReason?.label == 'Permanent Block' && confirmedPermanentBlock) &&
-                              blockReason?.label != 'Temporary Block')
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFF2F2F5), Color(0xFFEAEAEC)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: Color(0xFFB3B3B7), width: 0.9),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.04),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: TextButton.icon(
-                                onPressed: () {
+                          child:Opacity(
+                            opacity: lostConfirmed ? 0.5 : 1.0, // ✅ visually disabled
+                            child: IgnorePointer(
+                              ignoring: lostConfirmed, // ✅ disables interaction if confirmed lost
+                              child: CustomDropdown(
+                                key: ValueKey(blockReason?.label ?? 'none'),
+                                icon: Icons.warning_amber_rounded,
+                                selectedItem: blockReason,
+                                items: blockReasons,
+                                onChanged: (value) {
                                   final today = DateTime.now();
 
-                                  if (blockReason?.label == 'Temporary Block' &&
+                                  final isTempStillActive = blockReason?.label == 'Temporary Block' &&
                                       blockEndDate != null &&
-                                      today.isBefore(blockEndDate!)) {
+                                      today.isBefore(blockEndDate!) &&
+                                      value.label != 'Temporary Block';
+
+                                  if (isTempStillActive) {
                                     showCupertinoGlassToast(
                                       context,
-                                      "You can't reset this block until the end date.",
+                                      "You can't change the reason until ${blockEndDate!.toLocal().toString().split(' ')[0]}",
                                       isSuccess: false,
                                       position: ToastPosition.top,
                                     );
                                     return;
                                   }
 
+                                  final isPermanentSelected = blockReason?.label == 'Permanent Block';
+                                  final isLostStolenDamaged = blockReason?.label == 'Card Lost – Cannot Find It' ||
+                                      blockReason?.label == 'Card Stolen – Unauthorized Use' ||
+                                      blockReason?.label == 'Card Damaged – Not Functional';
+
+                                  final isTryingToChangeFromPermanent =
+                                      isPermanentSelected && value.label != 'Permanent Block' && confirmedPermanentBlock && isBlocked;
+                                  final isTryingToChangeFromSpecial =
+                                      isLostStolenDamaged && value.label != blockReason?.label;
+
+                                  if (isTryingToChangeFromPermanent) {
+                                    showCupertinoGlassToast(
+                                      context,
+                                      "To change the reason, please turn off the 'Block this card' option first.",
+                                      isSuccess: false,
+                                      position: ToastPosition.top,
+                                    );
+                                    return;
+                                  }
+
+                                  if (isTryingToChangeFromSpecial) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text("Clear the current block reason before selecting another."),
+                                        backgroundColor: Colors.redAccent,
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  if (value.label == 'Permanent Block') {
+                                    _showPermanentBlockDialog();
+                                    setState(() {
+                                      blockReason = value;
+                                      isPermanent = true;
+                                      confirmedPermanentBlock = true;
+                                      showRequestCard = false;
+                                      blockStartDate = null;
+                                      blockEndDate = null;
+                                    });
+                                    return;
+                                  }
+
+                                  if (value.label == 'Temporary Block') {
+                                    setState(() {
+                                      blockReason = value;
+                                      showRequestCard = false;
+                                      isPermanent = false;
+                                      confirmedPermanentBlock = false;
+                                      blockStartDate = null;
+                                      blockEndDate = null;
+                                    });
+                                    _pickBlockDates();
+                                    return;
+                                  }
+
+                                  if (value.label == 'Card Lost – Cannot Find It') {
+                                    _showCardLostDialogs();
+                                    return;
+                                  }
+
                                   setState(() {
-                                    isBlocked = false;
-                                    blockReason = null;
+                                    blockReason = value;
+                                    isPermanent = true;
+                                    showRequestCard = true;
+                                    confirmedPermanentBlock = false;
                                     blockStartDate = null;
                                     blockEndDate = null;
-                                    showRequestCard = false;
-                                    isPermanent = false;
-                                    confirmedPermanentBlock = false;
                                   });
 
-                                  showCupertinoGlassToast(
-                                    context,
-                                    "Block reason reset. Card is now active.",
-                                    isSuccess: false,
-                                    position: ToastPosition.top,
-                                  );
+                                  Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
                                 },
-                                icon: const Icon(Icons.close, size: 16, color: Colors.black87),
-                                label: const Text(
-                                  "Clear Reason",
-                                  style: TextStyle(
-                                    color: Colors.black87,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14.5,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                                  backgroundColor: Colors.transparent,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                                ),
+                                label: '',
                               ),
                             ),
+                          ),
+                        ),
+                      ),
+                    ),
 
-                          if (showRequestCard)
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF72B2FF), Color(0xFF007AFF)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: Color(0xFFB3B3B7), width: 0.9),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.blueAccent.withOpacity(0.08),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
+                    if (blockReason != null || blockStartDate != null || blockEndDate != null)
+                      ...[
+                        const SizedBox(height: 12),
+
+                        // Temporary Block Dates Info
+                        if (blockReason?.label == 'Temporary Block' &&
+                            blockStartDate != null &&
+                            blockEndDate != null)
+                          Builder(
+                            builder: (context) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                _scrollToBottom();
+                              });
+
+                              return Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 14),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFFFF1F1), Color(0xFFFFE2E2)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
-                                ],
-                              ),
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("New card request sent.")),
-                                  );
-                                },
-                                icon: const Icon(Icons.credit_card_rounded, size: 18),
-                                label: const Text(
-                                  "Request New Card",
-                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
                                 ),
-                                style: ElevatedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  backgroundColor: Colors.transparent,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.date_range, size: 18, color: Colors.redAccent),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Blocked from ${blockStartDate!.toLocal().toString().split(' ')[0]} to ${blockEndDate!.toLocal().toString().split(' ')[0]}',
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.redAccent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+
+                        // Warning for Permanent or Request Card
+                        if ((isPermanent || showRequestCard) && blockReason?.label != 'Temporary Block')
+                          Builder(
+                            builder: (context) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                _scrollToBottom();
+                              });
+
+                              return Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 14),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFFFE8E8), Color(0xFFFFD1D1)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                                ),
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        "This card will be permanently deactivated.",
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                    )
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+
+                        // Request New Card Button and Delivery Span
+                        if (blockReason?.label == 'Card Lost – Cannot Find It' && lostConfirmed) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minWidth: double.infinity,
+                                ),
+                                child: _buildRequestNewCardButton(iOSStyle: false),
+                              ),
+                            ),
+                          ),
+
+                          if (hasRequestedNewCard && requestedNewCardDate != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 10),
+                              child: Center(
+                                child: Container(
+                                  width: 300,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: const Color(0xFFE0E0E5)),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.04),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    "Your new card will be available after ${_formatDate(requestedNewCardDate!)}",
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1C1C1E),
+                                      height: 1.45,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
                               ),
                             ),
                         ],
-                      ),
-                    ]
-
+                      ]
                   ],
                 ),
               ),
             ],
           )
               : const SizedBox.shrink(key: ValueKey("empty")),
-        ),
+        )
       ],
     );
   }
@@ -2160,4 +2500,7 @@ Widget _dateLabel(String label, DateTime date) {
       ],
     ),
   );
+}
+String _formatDate(DateTime date) {
+  return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
 }
