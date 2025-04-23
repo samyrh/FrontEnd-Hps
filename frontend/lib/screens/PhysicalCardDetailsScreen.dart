@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/CustomDropdown.dart';
+import '../widgets/OtpVerificationDialog.dart';
 import '../widgets/Toast.dart';
 import '../widgets/UltraSwitch.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -2553,6 +2554,358 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     );
   }
 
+  Widget _buildDeleteCardSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 22),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Soft Black Line with Limited Width and Space Around the Label
+              Container(
+                width: 130, // Increased the width for a longer line
+                child: const Divider(
+                  color: Color(0xFFB0B0B0), // Soft black line color
+                  thickness: 2, // Slightly bolder line
+                ),
+              ),
+              // Adding space around the label
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12), // Space between the label and lines
+                child: const Text(
+                  "Delete Card",
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1C1C1E),
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              // Soft Black Line with Limited Width and Space Around the Label
+              Container(
+                width: 130, // Increased the width for a longer line
+                child: const Divider(
+                  color: Color(0xFFB0B0B0), // Soft black line color
+                  thickness: 2, // Slightly bolder line
+                ),
+              ),
+            ],
+          ),
+        ),
+        Center(
+          child: Container(
+            width: 370, // Slightly increased the width to 370 (adjust as needed)
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E5EA), // iOS grey input style
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFD1D1D6)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  textAlign: TextAlign.justify,
+                  text: const TextSpan(
+                    text:
+                    "If you delete this card, it will be permanently removed from your profile. "
+                        "You will no longer be able to use it for any transactions, and any linked services "
+                        "such as subscriptions or online payments will be deactivated. This action cannot be undone.",
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      height: 1.5,
+                      color: Color(0xFF3C3C43),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: () => _showDeleteConfirmationDialog(reason: blockReason?.label),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 20,
+                      color: Color(0xFFB00020),
+                    ),
+                    label: const Text("Delete Card"),
+                    style: TextButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFEDEE),
+                      foregroundColor: const Color(0xFFB00020),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        side: const BorderSide(color: Color(0xFFFF4D4F)),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 14.8,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showDeleteConfirmationDialog({String? reason}) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 🗑️ Icon
+                  Container(
+                    width: 92,
+                    height: 92,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFE8E8), Color(0xFFFFCCCC)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.redAccent.withOpacity(0.2),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.delete_forever_rounded, size: 48, color: Colors.redAccent),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // 📝 Title
+                  const Text(
+                    "Delete Card?",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1C1C1E),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "This action is irreversible. Once deleted, the card will be removed from your account and disabled permanently.",
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      height: 1.55,
+                      color: Color(0xFF3C3C43),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 💳 Card Info
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9F9FB),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFD1D1D6)),
+                    ),
+                    child: Column(
+                      children: const [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Cardholder", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
+                            Text("Nada S. Rhandor", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                          ],
+                        ),
+                        SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Card Number", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
+                            Text("•••• •••• •••• 345", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                          ],
+                        ),
+                        SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Card Type", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
+                            Text("Visa", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                          ],
+                        ),
+                        SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Expires", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
+                            Text("08/26", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ❗ Reason block
+                  if (reason != null) ...[
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFF0F0), Color(0xFFFFE5E5)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Color(0xFFFFA0A0), width: 1.2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 38),
+                          const SizedBox(height: 6),
+                          RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                height: 1.45,
+                                color: Color(0xFFB00020),
+                              ),
+                              children: [
+                                const TextSpan(text: "Selected reason: "),
+                                TextSpan(
+                                  text: "\"$reason\".\n",
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                const TextSpan(text: "Are you sure you want to delete this card?"),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // 🧭 Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: const Color(0xFFD1D1D6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text(
+                            "Cancel",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: Colors.redAccent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (_) => OtpVerificationDialog(
+                                onConfirmed: (otp) {
+                                  if (otp == "1111") {
+                                    showCupertinoGlassToast(
+                                      context,
+                                      "Card deleted. It’s been removed from your account and is no longer usable.",
+                                      isSuccess: true,
+                                      position: ToastPosition.top,
+                                    );
+                                    // ✅ Final deletion logic here
+                                  } else {
+                                    showCupertinoGlassToast(
+                                      context,
+                                      "Incorrect code.",
+                                      isSuccess: false,
+                                      position: ToastPosition.top,
+                                    );
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            "Delete",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
   @override
   void dispose() {
     _controller.dispose();
@@ -2626,6 +2979,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   _buildEcommerceToggle(),
                   _buildTpeToggle(),
                   _buildBlockCardSection(),
+                  _buildDeleteCardSection(),
                 ],
               ),
             ),
