@@ -1081,75 +1081,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-  Widget _buildClearReasonButton() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF2F2F5), Color(0xFFEAEAEC)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Color(0xFFB3B3B7), width: 0.9),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextButton.icon(
-        onPressed: () {
-          final today = DateTime.now();
 
-          if (blockReason?.label == 'Temporary Block' &&
-              blockEndDate != null &&
-              today.isBefore(blockEndDate!)) {
-            showCupertinoGlassToast(
-              context,
-              "You can't reset this block until the end date.",
-              isSuccess: false,
-              position: ToastPosition.top,
-            );
-            return;
-          }
-
-          setState(() {
-            isBlocked = false;
-            blockReason = null;
-            blockStartDate = null;
-            blockEndDate = null;
-            showRequestCard = false;
-            isPermanent = false;
-            confirmedPermanentBlock = false;
-          });
-
-          showCupertinoGlassToast(
-            context,
-            "Block reason reset. Card is now active.",
-            isSuccess: false,
-            position: ToastPosition.top,
-          );
-        },
-        icon: const Icon(Icons.close, size: 16, color: Colors.black87),
-        label: const Text(
-          "Clear Reason",
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.w600,
-            fontSize: 14.5,
-            letterSpacing: 0.2,
-          ),
-        ),
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          backgroundColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        ),
-      ),
-    );
-  }
   void _showRequestConfirmationDialog() {
     showDialog(
       context: context,
@@ -1269,7 +1201,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-  void _showCardLostDialogs() {
+  void _showCardLostDialogs({required String reasonLabel}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1303,16 +1235,20 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                 children: [
                   const Icon(Icons.error_outline_rounded, size: 46, color: Colors.redAccent),
                   const SizedBox(height: 16),
-                  const Text(
-                    "Card Reported as Lost",
-                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Colors.black87),
+                  Text(
+                    reasonLabel == 'Card Stolen – Unauthorized Use'
+                        ? "Card Reported as Stolen"
+                        : "Card Reported as Lost",
+                    style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Colors.black87),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    "Hello Nada S. Rhandor,\n\nWe've marked your card as lost for security. This action has been forwarded to our internal fraud and card issuance department.",
+                  Text(
+                    reasonLabel == 'Card Stolen – Unauthorized Use'
+                        ? "Hello Nada S. Rhandor,\n\nWe've marked your card as stolen for security. This action has been forwarded to our fraud investigation team."
+                        : "Hello Nada S. Rhandor,\n\nWe've marked your card as lost for security. This action has been forwarded to our internal fraud and card issuance department.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, color: Colors.black87, height: 1.5),
+                    style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.5),
                   ),
                   const SizedBox(height: 12),
                   const Text(
@@ -1356,21 +1292,21 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
-                            onPressed: () {
-                              Navigator.pop(context);
-                              setState(() {
-                                lostConfirmed = true;
-                                blockReason = blockReasons.firstWhere((item) => item.label == 'Card Lost – Cannot Find It');
-                                isBlocked = true;
-                                showRequestCard = true;
-                                blockStartDate = null;
-                                blockEndDate = null;
-                                isPermanent = true;
-                                confirmedPermanentBlock = false;
-                              });
-                              _scrollToBottom(); // optional: ensures the button is visible
-                            },
-                            child: const Text("Confirm", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            setState(() {
+                              lostConfirmed = true;
+                              blockReason = blockReasons.firstWhere((item) => item.label == reasonLabel);
+                              isBlocked = true;
+                              showRequestCard = true;
+                              blockStartDate = null;
+                              blockEndDate = null;
+                              isPermanent = true;
+                              confirmedPermanentBlock = false;
+                            });
+                            _scrollToBottom();
+                          },
+                          child: const Text("Confirm", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                         ),
                       ),
                     ],
@@ -1417,6 +1353,79 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           ),
         ],
       ),
+        child: ElevatedButton.icon(
+          onPressed: isSent
+              ? null
+              : () {
+            _showRequestConfirmationDialog();
+            setState(() {
+              hasRequestedNewCard = true;
+              requestedNewCardDate = DateTime.now().add(const Duration(days: 7));
+            });
+          },
+          icon: Icon(
+            Icons.credit_card_rounded,
+            size: 20,
+            color: isSent ? Colors.grey[400] : (iOSStyle ? Colors.black : Colors.white),
+          ),
+          label: Text(
+            isSent ? "Request Sent" : "Request New Card",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+              color: isSent ? Colors.grey[400] : (iOSStyle ? Colors.black : Colors.white),
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            elevation: isSent ? 0 : 4,
+            backgroundColor: isSent
+                ? const Color(0xFFF2F2F7)
+                : (iOSStyle ? Colors.white.withOpacity(0.85) : const Color(0xFF007AFF)),
+            shadowColor: isSent ? Colors.transparent : Colors.black.withOpacity(0.1),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: isSent
+                  ? BorderSide(color: Colors.grey[300]!)
+                  : BorderSide(color: iOSStyle ? const Color(0xFFE5E5EA) : Colors.transparent),
+            ),
+            foregroundColor: Colors.white,
+          ),
+        ),
+
+    );
+  }
+
+
+  Widget _buildRequestDamagedCardButton({bool iOSStyle = false}) {
+    final bool isSent = hasRequestedNewCard;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: iOSStyle ? const Color(0xFFE5E5EA) : null,
+        gradient: iOSStyle
+            ? null
+            : const LinearGradient(
+          colors: [Color(0xFF72B2FF), Color(0xFF007AFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: iOSStyle ? const Color(0xFFB3B3B7) : Colors.transparent,
+          width: 0.9,
+        ),
+        boxShadow: iOSStyle
+            ? []
+            : [
+          BoxShadow(
+            color: Colors.blueAccent.withOpacity(0.08),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: ElevatedButton.icon(
         onPressed: isSent
             ? null
@@ -1428,24 +1437,33 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           });
         },
         icon: Icon(
-          Icons.credit_card_rounded,
-          size: 18,
-          color: isSent ? Colors.grey : (iOSStyle ? Colors.black87 : Colors.white),
+          Icons.construction_rounded,
+          size: 20,
+          color: isSent ? Colors.grey[400] : (iOSStyle ? Colors.black : Colors.white),
         ),
         label: Text(
-          isSent ? "Request Sent" : "Request New Card",
+          isSent ? "Request Sent" : "Request Card for Damage",
           style: TextStyle(
+            fontSize: 15,
             fontWeight: FontWeight.w600,
-            fontSize: 14.5,
-            color: isSent ? Colors.grey : (iOSStyle ? Colors.black87 : Colors.white),
+            letterSpacing: 0.3,
+            color: isSent ? Colors.grey[400] : (iOSStyle ? Colors.black : Colors.white),
           ),
         ),
         style: ElevatedButton.styleFrom(
+          elevation: isSent ? 0 : 4,
+          backgroundColor: isSent
+              ? const Color(0xFFF2F2F7)
+              : (iOSStyle ? Colors.white.withOpacity(0.85) : const Color(0xFF007AFF)),
+          shadowColor: isSent ? Colors.transparent : Colors.black.withOpacity(0.1),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: isSent
+                ? BorderSide(color: Colors.grey[300]!)
+                : BorderSide(color: iOSStyle ? const Color(0xFFE5E5EA) : Colors.transparent),
+          ),
           foregroundColor: Colors.white,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
       ),
     );
@@ -1500,6 +1518,71 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
+  Widget _buildCardDeliveryInfo() {
+    return Container(
+      width: 360,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE0E0E5), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.credit_card_rounded,
+            color: Color(0xFF007AFF),
+            size: 26,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            "New Card Request Confirmed",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1C1C1E),
+              letterSpacing: 0.3,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "We’ve received your request for a new card and it is being processed. You’ll be notified once it’s ready.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13.5,
+              height: 1.45,
+              color: Color(0xFF3C3C43),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F0F7),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              "Expected after ${_formatDate(requestedNewCardDate!)}",
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF007AFF),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildBlockCardSection() {
     return Column(
@@ -1531,19 +1614,42 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   onChanged: (val) async {
                     final today = DateTime.now();
 
-                    // 🛑 1. Prevent disabling if card is marked lost
-                    if (!val && lostConfirmed && blockReason?.label == 'Card Lost – Cannot Find It') {
+                    // 🛑 1. Prevent disabling if card is marked lost, stolen, or damaged
+                    final criticalReasons = [
+                      'Card Lost – Cannot Find It',
+                      'Card Stolen – Unauthorized Use',
+                      'Card Damaged – Not Functional',
+                    ];
+
+                    if (!val && lostConfirmed && criticalReasons.contains(blockReason?.label)) {
+                      String reasonText;
+
+                      if (blockReason!.label.contains("Lost")) {
+                        reasonText = "Card is lost. It stays blocked until your new card request is approved.";
+                      } else if (blockReason!.label.contains("Stolen")) {
+                        reasonText = "Card is stolen. It stays blocked until your replacement card request is approved.";
+                      } else if (blockReason!.label.contains("Damaged")) {
+                        reasonText = "Card is damaged. It stays blocked until your replacement card is ready.";
+                      } else {
+                        reasonText = "This card issue requires it to remain blocked until resolved.";
+                      }
+
                       showCupertinoGlassToast(
                         context,
-                        "Card is lost. It stays blocked until your new card request is approved.",
+                        reasonText,
                         isSuccess: false,
                         position: ToastPosition.top,
                       );
-
-
-
                       return;
                     }
+
+
+
+
+
+
+
+
 
 
                     // 🛑 2. Prevent unblocking if Temporary Block not finished
@@ -1823,11 +1929,15 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                     return;
                                   }
 
-                                  if (value.label == 'Card Lost – Cannot Find It') {
-                                    _showCardLostDialogs();
+                                  if (value.label == 'Card Lost – Cannot Find It' ||
+                                      value.label == 'Card Stolen – Unauthorized Use' ||
+                                      value.label == 'Card Damaged – Not Functional') {
+                                    setState(() {
+                                      blockReason = value;
+                                    });
+                                    _showCardLostDialogs(reasonLabel: value.label); // 👈 Reuse the same modal
                                     return;
                                   }
-
                                   setState(() {
                                     blockReason = value;
                                     isPermanent = true;
@@ -1948,38 +2058,48 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                               ),
                             ),
                           ),
-
                           if (hasRequestedNewCard && requestedNewCardDate != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 10),
+                              padding: const EdgeInsets.only(top: 18),
                               child: Center(
-                                child: Container(
-                                  width: 300,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: const Color(0xFFE0E0E5)),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.04),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    "Your new card will be available after ${_formatDate(requestedNewCardDate!)}",
-                                    style: const TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF1C1C1E),
-                                      height: 1.45,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
+                                child: _buildCardDeliveryInfo(),
                               ),
+                            ),
+                        ] else if (blockReason?.label == 'Card Stolen – Unauthorized Use' && lostConfirmed) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minWidth: double.infinity,
+                                ),
+                                child: _buildRequestReplacementCardButton(iOSStyle: false),
+                              ),
+                            ),
+                          ),
+                          if (hasRequestedNewCard && requestedNewCardDate != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 18),
+                              child: Center(child: _buildCardDeliveryInfo()),
+                            ),
+                        ] else if (blockReason?.label == 'Card Damaged – Not Functional' && lostConfirmed) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minWidth: double.infinity,
+                                ),
+                                child: _buildRequestDamagedCardButton(iOSStyle: false),
+                              ),
+                            ),
+                          ),
+                          if (hasRequestedNewCard && requestedNewCardDate != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 18),
+                              child: Center(child: _buildCardDeliveryInfo()),
                             ),
                         ],
                       ]
@@ -1991,6 +2111,77 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
               : const SizedBox.shrink(key: ValueKey("empty")),
         )
       ],
+    );
+  }
+
+  Widget _buildRequestReplacementCardButton({bool iOSStyle = false}) {
+    final bool isSent = hasRequestedNewCard;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: iOSStyle ? const Color(0xFFE5E5EA) : null,
+        gradient: iOSStyle
+            ? null
+            : const LinearGradient(
+          colors: [Color(0xFF72B2FF), Color(0xFF007AFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: iOSStyle ? const Color(0xFFB3B3B7) : Colors.transparent,
+          width: 0.9,
+        ),
+        boxShadow: iOSStyle
+            ? []
+            : [
+          BoxShadow(
+            color: Colors.blueAccent.withOpacity(0.08),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: isSent
+            ? null
+            : () {
+          _showRequestConfirmationDialog(); // You can make a separate one if needed
+          setState(() {
+            hasRequestedNewCard = true;
+            requestedNewCardDate = DateTime.now().add(const Duration(days: 7));
+          });
+        },
+        icon: Icon(
+          Icons.credit_card_rounded,
+          size: 20,
+          color: isSent ? Colors.grey[400] : (iOSStyle ? Colors.black : Colors.white),
+        ),
+        label: Text(
+          isSent ? "Request Sent" : "Request Replacement Card",
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
+            color: isSent ? Colors.grey[400] : (iOSStyle ? Colors.black : Colors.white),
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          elevation: isSent ? 0 : 4,
+          backgroundColor: isSent
+              ? const Color(0xFFF2F2F7)
+              : (iOSStyle ? Colors.white.withOpacity(0.85) : const Color(0xFF007AFF)),
+          shadowColor: isSent ? Colors.transparent : Colors.black.withOpacity(0.1),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: isSent
+                ? BorderSide(color: Colors.grey[300]!)
+                : BorderSide(color: iOSStyle ? const Color(0xFFE5E5EA) : Colors.transparent),
+          ),
+          foregroundColor: Colors.white,
+        ),
+      ),
     );
   }
 
