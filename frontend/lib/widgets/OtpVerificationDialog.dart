@@ -77,8 +77,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> with Sing
 
   void _validateOtp() {
     if (otp == "1111") {
-      widget.onConfirmed(otp);
-      Navigator.of(context).pop();
+      widget.onConfirmed(otp); // ✅ Only call onConfirmed
     } else {
       HapticFeedback.heavyImpact();
       setState(() => _isInvalid = true);
