@@ -45,6 +45,9 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
   bool someoneTriedConfirmed = false;
   bool requestSent = false;
   bool isAccountClosureConfirmed = false;
+  bool isCardDeleted = false;
+  bool isRequestSent = false;
+  bool get isCardLocked => isRequestSent;
 
   final TextEditingController _cvvController = TextEditingController(
       text: '•••');
@@ -219,22 +222,44 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
   }
 
   Widget _buildInfoSection() {
+    final cardNumber = '1234 5678 9012 3456';
+    final maskedCardNumber = isRequestSent
+        ? '**** **** *** ${cardNumber.substring(cardNumber.length - 3)}'
+        : cardNumber;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle("Cardholder Info"),
-        _buildInput("Name", TextEditingController(text: "Nada S. Rhandor"),
-            Icons.person),
         _buildInput(
-            "Card Number", TextEditingController(text: "1234 5678 9012 3456"),
-            Icons.credit_card),
-        _buildInput("Expiry Date", TextEditingController(text: "08/26"),
-            Icons.calendar_today),
-        _buildInput("CVV", _cvvController, Icons.lock_outline,
+          "Name",
+          TextEditingController(text: "Nada S. Rhandor"),
+          Icons.person,
+        ),
+        _buildInput(
+          "Card Number",
+          TextEditingController(text: maskedCardNumber),
+          Icons.credit_card,
+        ),
+
+        if (!isRequestSent) // ✅ Only show Expiry and CVV if request NOT sent
+          _buildInput(
+            "Expiry Date",
+            TextEditingController(text: '08/26'),
+            Icons.calendar_today,
+          ),
+
+        if (!isRequestSent)
+          _buildInput(
+            "CVV",
+            _cvvController,
+            Icons.lock_outline,
             isObscured: false,
             onTapSuffix: _revealCVV,
-            suffixIcon: isCvvRevealed ? Icons.visibility_off_outlined : Icons
-                .remove_red_eye_outlined),
+            suffixIcon: isCvvRevealed
+                ? Icons.visibility_off_outlined
+                : Icons.remove_red_eye_outlined,
+          ),
       ],
     );
   }
@@ -248,10 +273,9 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
         _buildSectionTitle("Online Purchase Limit (Per Year)"),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-          child: Opacity(
-            opacity: isBlocked ? 0.4 : 1,
+          child: Opacity(opacity: (isBlocked || isCardLocked) ? 0.4 : 1,
             child: IgnorePointer(
-              ignoring: isBlocked,
+              ignoring: (isBlocked || isCardLocked),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                 decoration: BoxDecoration(
@@ -353,245 +377,260 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
 
   void _showDeleteConfirmationDialog({String? reason}) {
     showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.85),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 🗑️ Icon
-                  Container(
-                    width: 92,
-                    height: 92,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFE8E8), Color(0xFFFFCCCC)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.redAccent.withOpacity(0.2),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.delete_forever_rounded, size: 48, color: Colors.redAccent),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-
-                  // 📝 Title
-                  const Text(
-                    "Delete Card?",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1C1C1E),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    "This action is irreversible. Once deleted, the card will be removed from your account and disabled permanently.",
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      height: 1.55,
-                      color: Color(0xFF3C3C43),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 💳 Card Info
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF9F9FB),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFD1D1D6)),
-                    ),
-                    child: Column(
-                      children: const [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Cardholder", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                            Text("Nada S. Rhandor", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                          ],
-                        ),
-                        SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Card Number", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                            Text("•••• •••• •••• 345", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                          ],
-                        ),
-                        SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Card Type", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                            Text("Visa", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                          ],
-                        ),
-                        SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Expires", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                            Text("08/26", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // ❗ Reason block
-                  if (reason != null) ...[
-                    const SizedBox(height: 18),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 🗑️ Icon
                     Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                      width: 92,
+                      height: 92,
                       decoration: BoxDecoration(
+                        shape: BoxShape.circle,
                         gradient: const LinearGradient(
-                          colors: [Color(0xFFFFF0F0), Color(0xFFFFE5E5)],
+                          colors: [Color(0xFFFFE8E8), Color(0xFFFFCCCC)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Color(0xFFFFA0A0), width: 1.2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.redAccent.withOpacity(0.2),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.delete_forever_rounded, size: 48, color: Colors.redAccent),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+
+                    // 📝 Title
+                    const Text(
+                      "Delete Card?",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1C1C1E),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      "This action is irreversible. Once deleted, the card will be removed from your account and disabled permanently.",
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        height: 1.55,
+                        color: Color(0xFF3C3C43),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 💳 Card Info
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9F9FB),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFD1D1D6)),
                       ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 38),
-                          const SizedBox(height: 6),
-                          RichText(
-                            textAlign: TextAlign.center,
-                            text: TextSpan(
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                height: 1.45,
-                                color: Color(0xFFB00020),
-                              ),
-                              children: [
-                                const TextSpan(text: "Selected reason: "),
-                                TextSpan(
-                                  text: "\"$reason\".\n",
-                                  style: const TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                                const TextSpan(text: "Are you sure you want to delete this card?"),
-                              ],
-                            ),
+                        children: const [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("Cardholder", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
+                              Text("Nada S. Rhandor", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                            ],
+                          ),
+                          SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("Card Number", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
+                              Text("•••• •••• •••• 345", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                            ],
+                          ),
+                          SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("Card Type", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
+                              Text("Visa", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                            ],
+                          ),
+                          SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("Expires", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
+                              Text("08/26", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  ],
 
-                  const SizedBox(height: 24),
-
-                  // 🧭 Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            backgroundColor: const Color(0xFFD1D1D6),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    if (reason != null) ...[
+                      const SizedBox(height: 18),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFF0F0), Color(0xFFFFE5E5)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text(
-                            "Cancel",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Color(0xFFFFA0A0), width: 1.2),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextButton(
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            backgroundColor: Colors.redAccent,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          onPressed: () {
-                            Navigator.pop(context);
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (_) => OtpVerificationDialog(
-                                onConfirmed: (otp) {
-                                  if (otp == "1111") {
-                                    showCupertinoGlassToast(
-                                      context,
-                                      "Card deleted. It’s been removed from your account and is no longer usable.",
-                                      isSuccess: true,
-                                      position: ToastPosition.top,
-                                    );
-                                    // ✅ Final deletion logic here
-                                  } else {
-                                    showCupertinoGlassToast(
-                                      context,
-                                      "Incorrect code.",
-                                      isSuccess: false,
-                                      position: ToastPosition.top,
-                                    );
-                                  }
-                                },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 38),
+                            const SizedBox(height: 6),
+                            RichText(
+                              textAlign: TextAlign.center,
+                              text: TextSpan(
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.45,
+                                  color: Color(0xFFB00020),
+                                ),
+                                children: [
+                                  const TextSpan(text: "Selected reason: "),
+                                  TextSpan(
+                                    text: "\"$reason\".\n",
+                                    style: const TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                  const TextSpan(text: "Are you sure you want to delete this card?"),
+                                ],
                               ),
-                            );
-                          },
-                          child: const Text(
-                            "Delete",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                ],
+
+                    const SizedBox(height: 24),
+
+                    // 🧭 Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              backgroundColor: const Color(0xFFD1D1D6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              "Cancel",
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              backgroundColor: Colors.redAccent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context); // ✅ 1. First CLOSE the Delete Confirmation Dialog
+                              Future.delayed(const Duration(milliseconds: 150), () { // ✅ 2. Then AFTER a small delay show OTP cleanly
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (_) => OtpVerificationDialog(
+                                    onConfirmed: (otp) {
+                                      if (otp == "1111") {
+                                        Navigator.pop(context); // ✅ Only close the OTP dialog
+                                        Future.delayed(const Duration(milliseconds: 200), () {
+                                          setState(() {
+                                            isRequestSent = true; // ✅ Mark request as sent
+                                            // 🔥 Force RESET everything after delete request:
+                                            blockReason = null;
+                                            isBlocked = false;
+                                            showRequestNewCvv = false;
+                                            showRequestCard = false;
+                                            someoneTriedConfirmed = false;
+                                            isJustBlockNowConfirmed = false;
+                                            isAccountClosureConfirmed = false;
+                                          });
+                                          showCupertinoGlassToast(
+                                            context,
+                                            "Request sent. Your card deletion is being processed.",
+                                            isSuccess: true,
+                                            position: ToastPosition.top,
+                                          );
+                                        });
+                                      } else {
+                                        showCupertinoGlassToast(
+                                          context,
+                                          "Incorrect code.",
+                                          isSuccess: false,
+                                          position: ToastPosition.top,
+                                        );
+                                      }
+                                    },
+
+                                  ),
+                                );
+                              });
+                            },
+                            child: const Text(
+                              "Delete",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        )
     );
   }
 
@@ -676,6 +715,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
 
   Widget _buildBlockCardSection() {
     bool isJustBlockNow = blockReason?.label == 'Just Block for Now (Temporary)';
+    final bool isDropdownDisabled = isJustBlockNow || showRequestNewCvv || someoneTriedConfirmed || isAccountClosureConfirmed || requestSent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -860,9 +900,10 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                 Column(
                   children: [
                     IgnorePointer(
-                      ignoring: isJustBlockNow || showRequestNewCvv || someoneTriedConfirmed || isAccountClosureConfirmed,
-                    child: Opacity(
-                      opacity: (isJustBlockNow || showRequestNewCvv || someoneTriedConfirmed || isAccountClosureConfirmed) ? 0.5 : 1.0,
+                          ignoring: isDropdownDisabled,
+                          child: Opacity(
+                            opacity: isDropdownDisabled ? 0.5 : 1.0,
+
                       child: CustomDropdown(
                           key: ValueKey(blockReason?.label ?? 'none'),
                           icon: Icons.warning_amber_rounded,
@@ -1731,6 +1772,9 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
       ],
     );
   }
+
+
+
   Future<bool> _showUnblockConfirmation({required String title, required String message}) async {
     bool result = false;
     await showDialog(
@@ -1793,7 +1837,16 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
   }
 
   Widget _buildEcommerceToggle() {
-    final isDisabled = isBlocked;
+    final isDisabled = isBlocked || isCardLocked;
+
+    if (isDisabled && isEcommerceEnabled) {
+      // 🔥 Force OFF if disabled and still ON
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => isEcommerceEnabled = false);
+        }
+      });
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
@@ -1865,109 +1918,119 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
         ),
       );
 
-  Widget _buildFrontCard() =>
-      _cardContainer(
-        child: Column(
+  Widget _buildFrontCard() => _cardContainer(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'My Virtual Card',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            Image.asset('assets/visa_logo.png', width: 50, height: 50),
+          ],
+        ),
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('My Virtual Card',
-                    style: TextStyle(fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
-                Image.asset('assets/visa_logo.png', width: 50, height: 50),
-              ],
+            Text(
+              isRequestSent ? '**** **** *** 456' : '1234 5678 9012',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 2.5,
+              ),
             ),
+          ],
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '1234 5678 9012',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 2.5,
-                  ),
-                )
+                Text('CARDHOLDER',
+                    style: TextStyle(fontSize: 10, color: Colors.white54)),
+                SizedBox(height: 2),
+                Text('Nada S. Rhandor',
+                    style: TextStyle(fontSize: 13, color: Colors.white)),
               ],
             ),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('CARDHOLDER',
-                        style: TextStyle(fontSize: 10, color: Colors.white54)),
-                    SizedBox(height: 2),
-                    Text('Nada S. Rhandor',
-                        style: TextStyle(fontSize: 13, color: Colors.white)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('EXPIRES',
-                        style: TextStyle(fontSize: 10, color: Colors.white54)),
-                    SizedBox(height: 2),
-                    Text('08/26',
-                        style: TextStyle(fontSize: 13, color: Colors.white)),
-                  ],
+                const Text('EXPIRES',
+                    style: TextStyle(fontSize: 10, color: Colors.white54)),
+                const SizedBox(height: 2),
+                Text(
+                  isRequestSent ? '**/**' : '08/26',
+                  style: const TextStyle(fontSize: 13, color: Colors.white),
                 ),
               ],
             ),
           ],
         ),
-      );
+      ],
+    ),
+  );
 
-  Widget _buildBackCard() =>
-      _cardContainer(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildBackCard() => _cardContainer(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 30,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            const Text('CVV', style: TextStyle(color: Colors.white70)),
             Container(
-              height: 30,
-              margin: const EdgeInsets.only(bottom: 16),
+              width: 60,
+              height: 26,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: Colors.white24,
                 borderRadius: BorderRadius.circular(6),
               ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('CVV', style: TextStyle(color: Colors.white70)),
-                Container(
-                  width: 60,
-                  height: 26,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text('527',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+              child: Text(
+                isRequestSent ? '•••' : '527',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
-            ),
-            const Spacer(),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Signature',
-                    style: TextStyle(fontSize: 10, color: Colors.white54)),
-                Text('Valid Thru 08/26',
-                    style: TextStyle(fontSize: 10, color: Colors.white54)),
-              ],
+              ),
             ),
           ],
         ),
-      );
+        const Spacer(),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Signature',
+                style: TextStyle(fontSize: 10, color: Colors.white54)),
+            Text(
+              isRequestSent ? '**/**' : 'Valid Thru 08/26',
+              style: const TextStyle(fontSize: 10, color: Colors.white54),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 
   Widget _cardContainer({required Widget child}) {
     return Container(
@@ -2105,48 +2168,138 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 📝 Static RichText about card deletion
                 RichText(
                   textAlign: TextAlign.justify,
                   text: const TextSpan(
                     text:
-                    "If you delete this card, it will be permanently removed from your profile. "
-                        "You will no longer be able to use it for any transactions, and any linked services "
-                        "such as subscriptions or online payments will be deactivated. This action cannot be undone.",
+                    "Deleting this card will permanently remove it from your profile. "
+                        "You will no longer be able to use it for transactions, and linked services "
+                        "like subscriptions or online payments will be disabled.",
                     style: TextStyle(
                       fontSize: 13.5,
-                      height: 1.5,
+                      height: 1.55,
                       color: Color(0xFF3C3C43),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+
+                const SizedBox(height: 28),
+
+                // 🧠 Animated Process Section (Span + Button)
                 SizedBox(
                   width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: () => _showDeleteConfirmationDialog(reason: blockReason?.label),
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      size: 20,
-                      color: Color(0xFFB00020),
-                    ),
-                    label: const Text("Delete Card"),
-                    style: TextButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFEDEE),
-                      foregroundColor: const Color(0xFFB00020),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        side: const BorderSide(color: Color(0xFFFF4D4F)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // 🔹 Info Span BEFORE sending
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 700),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0, 0.1),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: !isRequestSent
+                            ? Padding(
+                          key: const ValueKey("beforeRequestSpan"),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            "Submitting a secure unlink request...",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13.8,
+                              height: 1.55,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        )
+                            : const SizedBox.shrink(),
                       ),
-                      textStyle: const TextStyle(
-                        fontSize: 14.8,
-                        fontWeight: FontWeight.w600,
+
+                      const SizedBox(height: 18),
+
+                      // 🔹 Fancy Button (Delete ➔ Request Sent)
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 600),
+                        switchInCurve: Curves.easeOutBack,
+                        switchOutCurve: Curves.easeInBack,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: ScaleTransition(
+                              scale: Tween<double>(begin: 0.95, end: 1.0).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: isRequestSent
+                            ? CupertinoButton.filled(
+                          key: const ValueKey("sentDeleteBtn"),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          borderRadius: BorderRadius.circular(18),
+                          onPressed: null,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(CupertinoIcons.checkmark_seal_fill, size: 20, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text(
+                                "Request Sent",
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        )
+                            : GestureDetector(
+                          key: const ValueKey("deleteBtn"),
+                          onTap: () => _showDeleteConfirmationDialog(reason: blockReason?.label),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF3B30), // iOS Delete Red
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.redAccent.withOpacity(0.25),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(CupertinoIcons.delete_solid, color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Delete Card",
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],
+
             ),
           ),
         ),
@@ -2231,7 +2384,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
           // 📜 Scrollable Content
           Padding(
             padding: EdgeInsets.only(top: topPadding + kToolbarHeight + 16),
-            child: ListView(
+            child:ListView(
               controller: _scrollController,
               padding: const EdgeInsets.only(bottom: 40),
               children: [
@@ -2242,14 +2395,44 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                   child: _buildCard(),
                 ),
                 _buildInfoSection(),
-                _buildLimitSection(),
-                _buildSectionTitle("Security Settings"),
-                _buildEcommerceToggle(),
-                _buildBlockCardSection(),
+
+                // ✨ Only show Limit if request is NOT sent
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: isRequestSent
+                      ? const SizedBox.shrink()
+                      : _buildLimitSection(),
+                ),
+
+                if (!isRequestSent) _buildSectionTitle("Security Settings"),
+
+                // ✨ Only show E-Commerce toggle if request is NOT sent
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: isRequestSent
+                      ? const SizedBox.shrink()
+                      : _buildEcommerceToggle(),
+                ),
+
+                // ✨ Only show Block Card if request is NOT sent
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: isRequestSent
+                      ? const SizedBox.shrink()
+                      : _buildBlockCardSection(),
+                ),
+
                 _buildDeleteCardSection(),
                 const SizedBox(height: 40),
               ],
-            ),
+            )
+
           ),
 
           // 🧭 Fixed Title Header
