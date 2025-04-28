@@ -108,81 +108,106 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> with Sing
             offset: Offset(_shakeAnimation.value, 0),
             child: CupertinoAlertDialog(
               title: const Padding(
-                padding: EdgeInsets.only(top: 8.0),
+                padding: EdgeInsets.only(top: 6), // ✅ Slightly less padding to push title up
                 child: Text(
                   'OTP Verification',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                 ),
               ),
               content: Padding(
-                padding: const EdgeInsets.only(top: 8.0, bottom: 4),
+                padding: const EdgeInsets.only(top: 4, left: 8, right: 8, bottom: 0),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
                       'Enter the 4-digit code sent to your phone.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 14.5, color: CupertinoColors.systemGrey),
                     ),
-                    const SizedBox(height: 20),
+
+                    const SizedBox(height: 18),
+
+                    // 🧩 OTP Inputs
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: List.generate(4, (index) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: SizedBox(
-                            width: 48,
-                            height: 52,
-                            child: RawKeyboardListener(
-                              focusNode: _keyboardFocusNodes[index],
-                              onKey: (event) {
-                                if (event is RawKeyDownEvent &&
-                                    event.logicalKey == LogicalKeyboardKey.backspace &&
-                                    _controllers[index].text.isEmpty &&
-                                    index > 0) {
-                                  _focusNodes[index - 1].requestFocus();
-                                }
-                              },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                decoration: BoxDecoration(
-                                  color: CupertinoColors.systemGrey5,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: _isInvalid ? Border.all(color: Colors.redAccent, width: 1.4) : null,
-                                ),
-                                child: CupertinoTextField(
-                                  controller: _controllers[index],
-                                  focusNode: _focusNodes[index],
-                                  keyboardType: TextInputType.number,
-                                  textAlign: TextAlign.center, // Ensures value is centered
-                                  maxLength: 1,
-                                  autofocus: index == 0,
-                                  showCursor: true,
-                                  cursorColor: CupertinoColors.activeBlue,
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  placeholder: '•',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
+                        return Row(
+                          children: [
+                            SizedBox(
+                              width: 46,
+                              height: 46,
+                              child: RawKeyboardListener(
+                                focusNode: _keyboardFocusNodes[index],
+                                onKey: (event) {
+                                  if (event is RawKeyDownEvent &&
+                                      event.logicalKey == LogicalKeyboardKey.backspace &&
+                                      _controllers[index].text.isEmpty &&
+                                      index > 0) {
+                                    _focusNodes[index - 1].requestFocus();
+                                  }
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOutCubic,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.95),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.04),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                    border: Border.all(
+                                      color: _isInvalid ? CupertinoColors.destructiveRed : CupertinoColors.systemGrey4,
+                                      width: 1.2,
+                                    ),
                                   ),
-                                  decoration: const BoxDecoration(color: Colors.transparent),
-                                  onChanged: (value) {
-                                    if (value.isNotEmpty && index < 3) {
-                                      _focusNodes[index + 1].requestFocus();
-                                    }
-                                    if (value.isEmpty && index > 0) {
-                                      _focusNodes[index - 1].requestFocus();
-                                    }
-                                    setState(() {});
-                                  },
-                                  onTap: () => _keyboardFocusNodes[index].requestFocus(),
+                                  child: CupertinoTextField(
+                                    controller: _controllers[index],
+                                    focusNode: _focusNodes[index],
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    maxLength: 1,
+                                    autofocus: index == 0,
+                                    showCursor: true,
+                                    cursorColor: CupertinoColors.activeBlue,
+                                    padding: EdgeInsets.zero,
+                                    placeholder: '•',
+                                    placeholderStyle: const TextStyle(
+                                      fontSize: 22,
+                                      color: CupertinoColors.systemGrey3,
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 2,
+                                    ),
+                                    decoration: const BoxDecoration(color: Colors.transparent),
+                                    onChanged: (value) {
+                                      if (value.isNotEmpty && index < 3) {
+                                        _focusNodes[index + 1].requestFocus();
+                                      } else if (value.isEmpty && index > 0) {
+                                        _focusNodes[index - 1].requestFocus();
+                                      }
+                                      setState(() {});
+                                    },
+                                    onTap: () => _keyboardFocusNodes[index].requestFocus(),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                            if (index != 3) const SizedBox(width: 6),
+                          ],
                         );
                       }),
                     ),
-                    const SizedBox(height: 10),
+
+                    const SizedBox(height: 14),
+
+                    // ❌ Error Message if wrong OTP
                     if (_isInvalid)
                       const Text(
                         "Incorrect code. Please try again.",
@@ -192,14 +217,17 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> with Sing
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    const SizedBox(height: 14),
+
+                    const SizedBox(height: 18),
+
+                    // 🔄 Resend OTP Timer
                     GestureDetector(
                       onTap: _canResend ? _resendOtp : null,
                       child: AnimatedOpacity(
                         opacity: _canResend ? 1 : 0.5,
                         duration: const Duration(milliseconds: 300),
                         child: Text(
-                          _canResend ? 'Resend OTP' : 'Resend in $_seconds s', // Countdown here
+                          _canResend ? 'Resend OTP' : 'Resend in $_seconds s',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -208,10 +236,11 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> with Sing
                         ),
                       ),
                     ),
-                    const SizedBox(height: 6),
                   ],
                 ),
               ),
+
+              // 🎯 Dialog Actions
               actions: [
                 CupertinoDialogAction(
                   onPressed: () => Navigator.of(context).pop(),
@@ -234,4 +263,5 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> with Sing
       ),
     );
   }
+
 }
