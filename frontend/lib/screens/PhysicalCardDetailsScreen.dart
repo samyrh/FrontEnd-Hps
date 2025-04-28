@@ -42,6 +42,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   bool lostConfirmed = false;
   bool hasRequestedNewCard = false;
   DateTime? requestedNewCardDate;
+  bool isCardDeleted = false;
+  bool deleteRequestSent = false;
+  bool isRequestSent = false;
 
   final TextEditingController _cvvController = TextEditingController(
       text: '•••');
@@ -78,13 +81,11 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     'Monthly Spending Cap': 10000,
     'Online Purchase Restriction': 2000,
   };
-
   final Gradient cardGradient = const LinearGradient(
     colors: [Color(0xFF7F7FD5), Color(0xFF86A8E7)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-
   @override
   void initState() {
     super.initState();
@@ -96,7 +97,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
   }
-
   void _flipCard() {
     if (isBlocked) {
       showCupertinoGlassToast(
@@ -115,9 +115,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     }
     setState(() => isFront = !isFront);
   }
-
-
-
   void _revealCVV() {
     if (isBlocked) {
       showCupertinoGlassToast(
@@ -153,7 +150,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       });
     }
   }
-
   void _revealPINPopup() {
     if (isBlocked) {
       showCupertinoGlassToast(
@@ -185,7 +181,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       });
     });
   }
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollController.animateTo(
@@ -195,8 +190,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       );
     });
   }
-
-
   Future<void> _pickBlockDates() async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day); // normalize
@@ -597,10 +590,14 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     );
 
   }
-
-  Widget _buildInput(String label, TextEditingController controller,
-      IconData icon,
-      {bool isObscured = false, VoidCallback? onTapSuffix, IconData? suffixIcon}) {
+  Widget _buildInput(
+      String label,
+      TextEditingController controller,
+      IconData icon, {
+        bool isObscured = false,
+        VoidCallback? onTapSuffix,
+        IconData? suffixIcon,
+      }) {
     return buildLabeledField(
       label,
       TextField(
@@ -617,8 +614,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           prefixIcon: Icon(icon, color: Colors.grey.shade700, size: 20),
           filled: true,
           fillColor: const Color(0xFFE5E5EA),
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 18),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: const BorderSide(color: Color(0xFFD1D1D6)),
@@ -627,7 +623,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
             borderRadius: BorderRadius.circular(20),
             borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
           ),
-          suffixIcon: onTapSuffix != null
+          suffixIcon: (onTapSuffix != null && !isRequestSent)
               ? GestureDetector(
             onTap: onTapSuffix,
             child: Icon(
@@ -640,7 +636,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
@@ -654,30 +649,63 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Widget _buildInfoSection() {
+    final cardNumber = "1234 5678 9012 3456";
+    final maskedCardNumber = isRequestSent
+        ? '**** **** *** ${cardNumber.substring(cardNumber.length - 3)}'
+        : cardNumber;
+
+    final expiryDate = isRequestSent ? '**/**' : '08/26';
+    final cvv = isRequestSent ? '•••' : _cvvController.text;
+    final pin = isRequestSent ? '••••' : _pinController.text;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle("Cardholder Info"),
-        _buildInput("Name", TextEditingController(text: "Nada S. Rhandor"),
-            Icons.person),
+
         _buildInput(
-            "Card Number", TextEditingController(text: "1234 5678 9012 3456"),
-            Icons.credit_card),
-        _buildInput("Expiry Date", TextEditingController(text: "08/26"),
-            Icons.calendar_today),
-        _buildInput("CVV", _cvvController, Icons.lock_outline,
+          "Name",
+          TextEditingController(text: "Nada S. Rhandor"),
+          Icons.person,
+        ),
+
+        _buildInput(
+          "Card Number",
+          TextEditingController(text: maskedCardNumber),
+          Icons.credit_card,
+        ),
+
+        if (!isRequestSent)
+          _buildInput(
+            "Expiry Date",
+            TextEditingController(text: expiryDate),
+            Icons.calendar_today,
+          ),
+
+        if (!isRequestSent)
+          _buildInput(
+            "CVV",
+            TextEditingController(text: cvv),
+            Icons.lock_outline,
             isObscured: false,
             onTapSuffix: _revealCVV,
-            suffixIcon: isCvvRevealed ? Icons.visibility_off_outlined : Icons
-                .remove_red_eye_outlined),
-        _buildInput("PIN", _pinController, Icons.key,
-            isObscured: true, onTapSuffix: _revealPINPopup),
+            suffixIcon: isCvvRevealed
+                ? Icons.visibility_off_outlined
+                : Icons.remove_red_eye_outlined,
+          ),
+
+        if (!isRequestSent)
+          _buildInput(
+            "PIN",
+            TextEditingController(text: pin),
+            Icons.key,
+            isObscured: true,
+            onTapSuffix: _revealPINPopup,
+          ),
       ],
     );
   }
-
   Widget _buildLimitSection() {
     final double maxLimit =
     selectedLimitType != null ? (maxLimitByType[selectedLimitType!.label] ?? 5000) : 5000;
@@ -1009,7 +1037,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       },
     );
   }
-
   Widget _buildAvailableLimitMessage(double selected, double max) {
     final double remaining = max - selected;
     final double percentUsed = selected / max;
@@ -1082,7 +1109,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   void _showRequestConfirmationDialog() {
     showDialog(
       context: context,
@@ -1320,7 +1346,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Color _limitColor(double value) {
     if (value <= 1000) return const Color(0xFF34C759);
     if (value <= 3000) return const Color(0xFFFF9500);
@@ -1397,8 +1422,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
 
     );
   }
-
-
   Widget _buildRequestDamagedCardButton({bool iOSStyle = false}) {
     final bool isSent = hasRequestedNewCard;
 
@@ -1469,7 +1492,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Widget _iosInfoSpan(String label, String value) {
     return SizedBox(
       width: 220, // Fixed width to align all spans equally
@@ -1584,7 +1606,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Widget _buildBlockCardSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2114,7 +2135,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ],
     );
   }
-
   Widget _buildRequestReplacementCardButton({bool iOSStyle = false}) {
     final bool isSent = hasRequestedNewCard;
 
@@ -2185,7 +2205,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Widget _buildContactlessToggle() {
     final isDisabled = isBlocked;
 
@@ -2231,7 +2250,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Widget _buildEcommerceToggle() {
     final isDisabled = isBlocked;
 
@@ -2277,7 +2295,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Widget _buildTpeToggle() {
     final isDisabled = isBlocked;
 
@@ -2323,7 +2340,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   // Card UI widgets
   Widget _buildCard() =>
       GestureDetector(
@@ -2349,111 +2365,117 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           },
         ),
       );
-
-  Widget _buildFrontCard() =>
-      _cardContainer(
-        child: Column(
+  Widget _buildFrontCard() => _cardContainer(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'My Physical Card',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            Image.asset('assets/visa_logo.png', width: 50, height: 50),
+          ],
+        ),
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('My Physical Card',
-                    style: TextStyle(fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
-                Image.asset('assets/visa_logo.png', width: 50, height: 50),
-              ],
+            Text(
+              isRequestSent ? '**** **** *** 456' : '1234 5678 9012 3456',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 2.5,
+              ),
             ),
+          ],
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '1234 5678 9012',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 2.5,
-                  ),
-                )
+                Text('CARDHOLDER',
+                    style: TextStyle(fontSize: 10, color: Colors.white54)),
+                SizedBox(height: 2),
+                Text('Nada S. Rhandor',
+                    style: TextStyle(fontSize: 13, color: Colors.white)),
               ],
             ),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('CARDHOLDER',
-                        style: TextStyle(fontSize: 10, color: Colors.white54)),
-                    SizedBox(height: 2),
-                    Text('Nada S. Rhandor',
-                        style: TextStyle(fontSize: 13, color: Colors.white)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('EXPIRES',
-                        style: TextStyle(fontSize: 10, color: Colors.white54)),
-                    SizedBox(height: 2),
-                    Text('08/26',
-                        style: TextStyle(fontSize: 13, color: Colors.white)),
-                  ],
+                const Text('EXPIRES',
+                    style: TextStyle(fontSize: 10, color: Colors.white54)),
+                const SizedBox(height: 2),
+                Text(
+                  isRequestSent ? '**/**' : '08/26',
+                  style: const TextStyle(fontSize: 13, color: Colors.white),
                 ),
               ],
             ),
           ],
         ),
-      );
-
-  Widget _buildBackCard() =>
-      _cardContainer(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      ],
+    ),
+  );
+  Widget _buildBackCard() => _cardContainer(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 30,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            const Text('CVV', style: TextStyle(color: Colors.white70)),
             Container(
-              height: 30,
-              margin: const EdgeInsets.only(bottom: 16),
+              width: 60,
+              height: 26,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: Colors.white24,
                 borderRadius: BorderRadius.circular(6),
               ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('CVV', style: TextStyle(color: Colors.white70)),
-                Container(
-                  width: 60,
-                  height: 26,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text('527',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+              child: Text(
+                isRequestSent ? '•••' : '527',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
-            ),
-            const Spacer(),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Signature',
-                    style: TextStyle(fontSize: 10, color: Colors.white54)),
-                Text('Valid Thru 08/26',
-                    style: TextStyle(fontSize: 10, color: Colors.white54)),
-              ],
+              ),
             ),
           ],
         ),
-      );
-
+        const Spacer(),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Signature', style: TextStyle(fontSize: 10, color: Colors.white54)),
+            Text(
+              isRequestSent ? '**/**' : 'Valid Thru 08/26',
+              style: const TextStyle(fontSize: 10, color: Colors.white54),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
   Widget _cardContainer({required Widget child}) {
     return Container(
       height: 200,
@@ -2471,7 +2493,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       child: child,
     );
   }
-
   Widget _buildPinPopup() {
     return Positioned.fill(
       child: BackdropFilter(
@@ -2530,7 +2551,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Widget buildLabeledField(String label, Widget child) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -2553,7 +2573,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
   Widget _buildDeleteCardSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2563,17 +2582,15 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Soft Black Line with Limited Width and Space Around the Label
               Container(
-                width: 130, // Increased the width for a longer line
+                width: 130,
                 child: const Divider(
-                  color: Color(0xFFB0B0B0), // Soft black line color
-                  thickness: 2, // Slightly bolder line
+                  color: Color(0xFFB0B0B0),
+                  thickness: 2,
                 ),
               ),
-              // Adding space around the label
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12), // Space between the label and lines
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: const Text(
                   "Delete Card",
                   style: TextStyle(
@@ -2584,12 +2601,11 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   ),
                 ),
               ),
-              // Soft Black Line with Limited Width and Space Around the Label
               Container(
-                width: 130, // Increased the width for a longer line
+                width: 130,
                 child: const Divider(
-                  color: Color(0xFFB0B0B0), // Soft black line color
-                  thickness: 2, // Slightly bolder line
+                  color: Color(0xFFB0B0B0),
+                  thickness: 2,
                 ),
               ),
             ],
@@ -2597,9 +2613,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
         ),
         Center(
           child: Container(
-            width: 370, // Slightly increased the width to 370 (adjust as needed)
+            width: 370,
             decoration: BoxDecoration(
-              color: const Color(0xFFE5E5EA), // iOS grey input style
+              color: const Color(0xFFE5E5EA),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: const Color(0xFFD1D1D6)),
               boxShadow: [
@@ -2617,42 +2633,122 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                 RichText(
                   textAlign: TextAlign.justify,
                   text: const TextSpan(
-                    text:
-                    "If you delete this card, it will be permanently removed from your profile. "
-                        "You will no longer be able to use it for any transactions, and any linked services "
-                        "such as subscriptions or online payments will be deactivated. This action cannot be undone.",
+                    text: "Deleting this card will permanently remove it from your profile. "
+                        "You will no longer be able to use it for transactions, and linked services "
+                        "like subscriptions or online payments will be disabled.",
                     style: TextStyle(
                       fontSize: 13.5,
-                      height: 1.5,
+                      height: 1.55,
                       color: Color(0xFF3C3C43),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: () => _showDeleteConfirmationDialog(reason: blockReason?.label),
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      size: 20,
-                      color: Color(0xFFB00020),
-                    ),
-                    label: const Text("Delete Card"),
-                    style: TextButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFEDEE),
-                      foregroundColor: const Color(0xFFB00020),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        side: const BorderSide(color: Color(0xFFFF4D4F)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 700),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0, 0.1),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: !isRequestSent
+                            ? Padding(
+                          key: const ValueKey("beforeRequestSpan"),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            "Submitting a secure unlink request...",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13.8,
+                              height: 1.55,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        )
+                            : const SizedBox.shrink(),
                       ),
-                      textStyle: const TextStyle(
-                        fontSize: 14.8,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 18),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 600),
+                        switchInCurve: Curves.easeOutBack,
+                        switchOutCurve: Curves.easeInBack,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: ScaleTransition(
+                              scale: Tween<double>(begin: 0.95, end: 1.0).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: isRequestSent
+                            ? CupertinoButton.filled(
+                          key: const ValueKey("sentDeleteBtn"),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          borderRadius: BorderRadius.circular(18),
+                          onPressed: null,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(CupertinoIcons.checkmark_seal_fill, size: 20, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text(
+                                "Request Sent",
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        )
+                            : GestureDetector(
+                          key: const ValueKey("deleteBtn"),
+                          onTap: () => _showDeleteConfirmationDialog(reason: blockReason?.label),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF3B30),
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.redAccent.withOpacity(0.25),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(CupertinoIcons.delete_solid, color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Delete Card",
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -2662,14 +2758,13 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ],
     );
   }
-
   void _showDeleteConfirmationDialog({String? reason}) {
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
@@ -2684,112 +2779,84 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
                     blurRadius: 20,
-                    offset: const Offset(0, 8),
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 🗑️ Icon
+                  // 🗑️ Trash Icon
                   Container(
-                    width: 92,
-                    height: 92,
-                    decoration: BoxDecoration(
+                    width: 80,
+                    height: 80,
+                    decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         colors: [Color(0xFFFFE8E8), Color(0xFFFFCCCC)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.redAccent.withOpacity(0.2),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
                     ),
                     child: const Center(
-                      child: Icon(Icons.delete_forever_rounded, size: 48, color: Colors.redAccent),
+                      child: Icon(Icons.delete_forever_rounded, size: 42, color: Colors.redAccent),
                     ),
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 18),
 
-                  // 📝 Title
+                  // Title
                   const Text(
-                    "Delete Card?",
+                    "Confirm Deletion",
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF1C1C1E),
                     ),
-                    textAlign: TextAlign.center,
                   ),
+
                   const SizedBox(height: 14),
+
+                  // Subtext
                   const Text(
-                    "This action is irreversible. Once deleted, the card will be removed from your account and disabled permanently.",
+                    "Are you sure you want to delete this card? This action is permanent and cannot be undone.",
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14.5,
                       height: 1.55,
                       color: Color(0xFF3C3C43),
+                      fontWeight: FontWeight.w500,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20),
 
-                  // 💳 Card Info
+                  const SizedBox(height: 22),
+
+                  // 📄 Card Info only (NO Email)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF9F9FB),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: const Color(0xFFD1D1D6)),
                     ),
                     child: Column(
-                      children: const [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Cardholder", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                            Text("Nada S. Rhandor", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                          ],
-                        ),
-                        SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Card Number", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                            Text("•••• •••• •••• 345", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                          ],
-                        ),
-                        SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Card Type", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                            Text("Visa", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                          ],
-                        ),
-                        SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Expires", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                            Text("08/26", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                          ],
-                        ),
+                      children: [
+                        _buildInfoRow("Cardholder", "Nada S. Rhandor"),
+                        const SizedBox(height: 8),
+                        _buildInfoRow("Card Number", "•••• •••• •••• 345"),
+                        const SizedBox(height: 8),
+                        _buildInfoRow("Card Type", "Visa"),
+                        const SizedBox(height: 8),
+                        _buildInfoRow("Expires", "08/26"),
                       ],
                     ),
                   ),
 
-                  // ❗ Reason block
                   if (reason != null) ...[
                     const SizedBox(height: 18),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFFFFF0F0), Color(0xFFFFE5E5)],
@@ -2799,28 +2866,19 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Color(0xFFFFA0A0), width: 1.2),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                      child: Row(
                         children: [
-                          const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 38),
-                          const SizedBox(height: 6),
-                          RichText(
-                            textAlign: TextAlign.center,
-                            text: TextSpan(
+                          const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 26),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "Reason: \"$reason\"",
                               style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                height: 1.45,
+                                fontWeight: FontWeight.w600,
                                 color: Color(0xFFB00020),
+                                height: 1.4,
                               ),
-                              children: [
-                                const TextSpan(text: "Selected reason: "),
-                                TextSpan(
-                                  text: "\"$reason\".\n",
-                                  style: const TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                                const TextSpan(text: "Are you sure you want to delete this card?"),
-                              ],
                             ),
                           ),
                         ],
@@ -2828,7 +2886,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                     ),
                   ],
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 26),
 
                   // 🧭 Action Buttons
                   Row(
@@ -2836,8 +2894,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                       Expanded(
                         child: TextButton(
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
                             backgroundColor: const Color(0xFFD1D1D6),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                           onPressed: () => Navigator.pop(context),
@@ -2855,36 +2913,51 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                       Expanded(
                         child: TextButton(
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
                             backgroundColor: Colors.redAccent,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                           onPressed: () {
                             Navigator.pop(context);
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (_) => OtpVerificationDialog(
-                                onConfirmed: (otp) {
-                                  if (otp == "1111") {
-                                    showCupertinoGlassToast(
-                                      context,
-                                      "Card deleted. It’s been removed from your account and is no longer usable.",
-                                      isSuccess: true,
-                                      position: ToastPosition.top,
-                                    );
-                                    // ✅ Final deletion logic here
-                                  } else {
-                                    showCupertinoGlassToast(
-                                      context,
-                                      "Incorrect code.",
-                                      isSuccess: false,
-                                      position: ToastPosition.top,
-                                    );
-                                  }
-                                },
-                              ),
-                            );
+                            Future.delayed(const Duration(milliseconds: 200), () {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (_) => OtpVerificationDialog(
+                                  onConfirmed: (otp) {
+                                    if (otp == "1111") {
+                                      Navigator.pop(context);
+                                      setState(() {
+                                        isRequestSent = true;
+                                        deleteRequestSent = true;
+                                        isCardDeleted = true;
+                                        isBlocked = false;
+                                        blockReason = null;
+                                        blockStartDate = null;
+                                        blockEndDate = null;
+                                        isPermanent = false;
+                                        confirmedPermanentBlock = false;
+                                        lostConfirmed = false;
+                                        showRequestCard = false;
+                                      });
+                                      showCupertinoGlassToast(
+                                        context,
+                                        "Card deleted successfully.",
+                                        isSuccess: true,
+                                        position: ToastPosition.top,
+                                      );
+                                    } else {
+                                      showCupertinoGlassToast(
+                                        context,
+                                        "Incorrect code. Try again.",
+                                        isSuccess: false,
+                                        position: ToastPosition.top,
+                                      );
+                                    }
+                                  },
+                                ),
+                              );
+                            });
                           },
                           child: const Text(
                             "Delete",
@@ -2904,6 +2977,22 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           ),
         ),
       ),
+    );
+  }
+// Helper Widget
+  Widget _buildInfoRow(String title, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73)),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E)),
+        ),
+      ],
     );
   }
   @override
@@ -2972,16 +3061,22 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                     curve: Curves.easeOut,
                     child: _buildCard(),
                   ),
+
                   _buildInfoSection(),
-                  _buildLimitSection(),
-                  _buildSectionTitle("Security Settings"),
-                  _buildContactlessToggle(),
-                  _buildEcommerceToggle(),
-                  _buildTpeToggle(),
-                  _buildBlockCardSection(),
+
+                  if (!isRequestSent) ...[
+                    _buildLimitSection(),
+                    _buildSectionTitle("Security Settings"),
+                    _buildContactlessToggle(),
+                    _buildEcommerceToggle(),
+                    _buildTpeToggle(),
+                    _buildBlockCardSection(),
+                  ],
+
                   _buildDeleteCardSection(),
                 ],
               ),
+
             ),
           ),
 
@@ -3025,7 +3120,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
-
 }
 
 
