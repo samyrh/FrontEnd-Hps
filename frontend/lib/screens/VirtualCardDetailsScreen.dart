@@ -2356,35 +2356,50 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // 🌈 Gradient Background
+          // 🌈 iOS-style Light & Soft Pastel Gradient Background (Final)
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
                 colors: [
-                  Color(0xFFD6F2F0),
-                  Color(0xFFE3E4F7),
-                  Color(0xFFF5F6FA),
-                  Color(0xFFFFF1F3),
-                  Color(0xFFE0F7FA),
+                  Color(0xFFDFF7F6), // Light Aqua (very soft)
+                  Color(0xFFEAE6FB), // Light Lavender
+                  Color(0xFFFDF7F8), // Soft White Pink
+                  Color(0xFFFFF5F7), // Almost white pink
+                  Color(0xFFE3F7FB), // Soft Blue
+                  Color(0xFFE9F9EC), // Light Green
+                  Color(0xFFFFFBE8), // Very light yellow
+                  Color(0xFFFFF2E7), // Very light peach
+                ],
+                stops: [
+                  0.0,
+                  0.2,
+                  0.4,
+                  0.55,
+                  0.7,
+                  0.85,
+                  0.92,
+                  1.0,
                 ],
               ),
             ),
           ),
 
-          // 🧊 Frosted Glass Blur Layer
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 200, sigmaY: 200),
-            child: Container(
-              color: Colors.white.withOpacity(0.08),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+              child: Container(
+                color: Colors.white.withOpacity(0.08),
+              ),
             ),
           ),
 
           // 📜 Scrollable Content
           Padding(
             padding: EdgeInsets.only(top: topPadding + kToolbarHeight + 16),
-            child:ListView(
+            child: ListView(
               controller: _scrollController,
               padding: const EdgeInsets.only(bottom: 40),
               children: [
@@ -2396,7 +2411,6 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                 ),
                 _buildInfoSection(),
 
-                // ✨ Only show Limit if request is NOT sent
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 500),
                   switchInCurve: Curves.easeOutCubic,
@@ -2408,7 +2422,6 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
 
                 if (!isRequestSent) _buildSectionTitle("Security Settings"),
 
-                // ✨ Only show E-Commerce toggle if request is NOT sent
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 500),
                   switchInCurve: Curves.easeOutCubic,
@@ -2418,7 +2431,6 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                       : _buildEcommerceToggle(),
                 ),
 
-                // ✨ Only show Block Card if request is NOT sent
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 500),
                   switchInCurve: Curves.easeOutCubic,
@@ -2431,8 +2443,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                 _buildDeleteCardSection(),
                 const SizedBox(height: 40),
               ],
-            )
-
+            ),
           ),
 
           // 🧭 Fixed Title Header
