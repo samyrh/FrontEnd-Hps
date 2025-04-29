@@ -198,7 +198,7 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
               ),
             ),
 
-            const SizedBox(height: 40),
+              const SizedBox(height: 40),
           ],
         ),
       ),
