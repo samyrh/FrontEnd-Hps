@@ -158,14 +158,16 @@ class TravelPlanScreen extends StatefulWidget {
 }
 
 class _TravelPlanScreenState extends State<TravelPlanScreen> {
-
   final Map<String, List<DropdownItem>> selectedCountriesPerPack = {};
   final Map<String, DateTime?> startDatesPerPack = {};
   final Map<String, DateTime?> endDatesPerPack = {};
   int currentIndex = 0;
   String? selectedPackLabel;
+  final Map<String, bool> approvalNoticeSeenPerPack = {};
 
-
+// ✅ Declare cleanNow and maxDate as `late` (not final here)
+  late DateTime cleanNow;
+  late DateTime maxDate;
   final List<DropdownItem> reasonItems = [
     DropdownItem(label: 'Visa Youth', icon: Icons.school_rounded),
     DropdownItem(label: 'Visa Classic', icon: Icons.credit_card_rounded),
@@ -178,23 +180,99 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     if (selectedPackLabel == null) return;
 
-    final now = DateTime.now();
-    final cleanNow = DateTime(now.year, now.month, now.day); // strip time precision
+    final selectedPack = physicalCardSpecsPacks[selectedPackLabel!]!;
 
+    // ✅ Set dynamic date range
+    late DateTime minDate;
+    late DateTime maxSelectableDate;
+
+    if (isStart) {
+      minDate = cleanNow;
+      maxSelectableDate = cleanNow.add(Duration(days: selectedPack.maxTravelDays));
+    } else {
+      final startDate = startDatesPerPack[selectedPackLabel!];
+      if (startDate == null) {
+        showError(context, "Please select a start date first.");
+        return;
+      }
+      minDate = startDate;
+      maxSelectableDate = startDate.add(Duration(days: selectedPack.maxTravelDays));
+    }
+
+    // ✅ Get current selected value or fallback to minDate
     DateTime selectedDate = isStart
-        ? cleanNow
-        : (startDatesPerPack[selectedPackLabel!] ?? cleanNow);
+        ? (startDatesPerPack[selectedPackLabel!] ?? minDate)
+        : (endDatesPerPack[selectedPackLabel!] ?? minDate);
+
+    // 🔔 Show one-time approval notice
+    final hasSeen = approvalNoticeSeenPerPack[selectedPackLabel!] ?? false;
+    if (!hasSeen) {
+      approvalNoticeSeenPerPack[selectedPackLabel!] = true;
+
+      await showCupertinoDialog(
+        context: context,
+        builder: (_) => CupertinoAlertDialog(
+          title: const Text(
+            "Approval Notice",
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: CupertinoColors.label,
+            ),
+          ),
+          content: const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+              "Approval may take 24–72 hours.\n\nNote: The maximum duration for a travel plan is 90 days.",
+              style: TextStyle(
+                fontSize: 15,
+                color: CupertinoColors.secondaryLabel,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                "Got it",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: CupertinoColors.activeBlue,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 📆 Show CupertinoDatePicker in modal
+    DateTime tempSelectedDate = selectedDate; // 👈 Holds the latest selected value
 
     showCupertinoModalPopup(
       context: context,
       barrierColor: Colors.black.withOpacity(0.3),
-      builder: (BuildContext context) {
+      builder: (_) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF2F2F7), Color(0xFFE5E5EA)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
-          padding: const EdgeInsets.only(top: 16, bottom: 30),
+          padding: const EdgeInsets.only(top: 20, bottom: 30),
           child: SafeArea(
             top: false,
             child: Column(
@@ -206,47 +284,69 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF111827),
+                    decoration: TextDecoration.none,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 SizedBox(
                   height: 220,
-                  child: CupertinoDatePicker(
-                    mode: CupertinoDatePickerMode.date,
-                    initialDateTime: selectedDate,
-                    minimumDate: cleanNow,
-                    maximumDate: cleanNow.add(const Duration(days: 90)),
-                    onDateTimeChanged: (DateTime newDate) {
-                      selectedDate = newDate;
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    CupertinoButton(
-                      child: const Text('Cancel'),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    CupertinoButton(
-                      child: const Text(
-                        'Confirm',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        setState(() {
-                          if (isStart) {
-                            startDatesPerPack[selectedPackLabel!] = selectedDate;
-                            endDatesPerPack[selectedPackLabel!] = null;
-                          } else {
-                            endDatesPerPack[selectedPackLabel!] = selectedDate;
-                          }
-                        });
+                  child: CupertinoTheme(
+                    data: const CupertinoThemeData(brightness: Brightness.light),
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.date,
+                      initialDateTime: selectedDate,
+                      minimumDate: minDate,
+                      maximumDate: maxSelectableDate,
+                      onDateTimeChanged: (DateTime newDate) {
+                        tempSelectedDate = newDate;
                       },
                     ),
-                  ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: CupertinoButton(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          borderRadius: BorderRadius.circular(14),
+                          color: const Color(0xFFF2F2F7),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF3A3A3C),
+                            ),
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CupertinoButton.filled(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          borderRadius: BorderRadius.circular(14),
+                          child: const Text(
+                            'Confirm',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            setState(() {
+                              if (isStart) {
+                                startDatesPerPack[selectedPackLabel!] = tempSelectedDate;
+                                endDatesPerPack[selectedPackLabel!] = null;
+                              } else {
+                                endDatesPerPack[selectedPackLabel!] = tempSelectedDate;
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -254,8 +354,8 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
         );
       },
     );
-  }
 
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -483,22 +583,70 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
     );
   }
 
+
+  @override
+  void initState() {
+    super.initState();
+
+    final now = DateTime.now();
+    cleanNow = DateTime(now.year, now.month, now.day); // 👈 today at 00:00
+    maxDate = cleanNow.add(const Duration(days: 90));  // 👈 max range from today
+  }
+
   void showError(BuildContext context, String message) {
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
-        title: const Text("Error"),
-        content: Text(message),
+        insetAnimationDuration: const Duration(milliseconds: 300),
+        title: Column(
+          children: const [
+            Icon(
+              CupertinoIcons.exclamationmark_triangle_fill,
+              color: Color(0xFFFF3B30), // iOS red tone
+              size: 34,
+            ),
+            SizedBox(height: 12),
+            Text(
+              "Something went wrong",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111111),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8.0, bottom: 2),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF5E5E5E), // soft dark grey
+              height: 1.5,
+            ),
+          ),
+        ),
         actions: [
           CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text("Close"),
             onPressed: () => Navigator.pop(context),
-          )
+            child: const Text(
+              "Close",
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: CupertinoColors.activeBlue,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+
   void showCupertinoGlassToast(BuildContext context, String message,
       {bool isSuccess = true, ToastPosition position = ToastPosition.bottom}) {
     final overlay = Overlay.of(context);
