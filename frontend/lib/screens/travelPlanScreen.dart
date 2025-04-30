@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sami/widgets/Card_Scroller.dart';
+import '../widgets/AddTravelPlan/DialogRow.dart';
+import '../widgets/AddTravelPlan/buildScrollableCountryRow.dart';
 import '../widgets/Countries_Dropdown.dart';
 import '../widgets/CustomDropdown.dart';
 import '../widgets/Navbar.dart';
@@ -176,7 +178,7 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
     DropdownItem(label: 'Visa Premium+', icon: Icons.stars_rounded),
     DropdownItem(label: 'Visa International', icon: Icons.public_rounded),
   ];
-
+  final Map<String, bool> travelPlanSubmittedPerPack = {};
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     if (selectedPackLabel == null) return;
 
@@ -359,12 +361,18 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isSubmitted = selectedPackLabel != null &&
+        travelPlanSubmittedPerPack[selectedPackLabel!] == true;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: ListView(
+          controller: _scrollController,
           children: [
-            const SizedBox(height: 20),
+            const SizedBox(height: 24), // 🔝 Top spacing after SafeArea
+
+            // 🔙 Header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Stack(
@@ -388,7 +396,10 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+
+            const SizedBox(height: 20), // 👇 space after title
+
+            // 📇 Card Scroller
             CardScroller(
               onCardChanged: (label) {
                 setState(() {
@@ -399,9 +410,13 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
                 });
               },
             ),
-            if (selectedPackLabel != null)
+
+            if (selectedPackLabel != null) ...[
+              const SizedBox(height: 32),
+
+              // 🔹 Travel Pack Summary Divider
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 28, 20, 8),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: const [
                     Expanded(child: Divider(thickness: 1.2)),
@@ -409,168 +424,64 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
                       padding: EdgeInsets.symmetric(horizontal: 10),
                       child: Text(
                         "Travel Pack Summary",
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                     Expanded(child: Divider(thickness: 1.2)),
                   ],
                 ),
               ),
-            if (selectedPackLabel != null)
+
+              const SizedBox(height: 16),
+
+              // 🧾 Travel Pack Details
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildTravelPackSpan(physicalCardSpecsPacks[selectedPackLabel!]!),
+                child: _buildTravelPackSpan(
+                  physicalCardSpecsPacks[selectedPackLabel!]!,
+                ),
               ),
+            ],
+
+            const SizedBox(height: 32),
+
+            // ✈️ Travel Plan Title
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: const [
                   Expanded(child: Divider(thickness: 1.2)),
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10),
                     child: Text(
-                      "Travel Plan Form",
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                      "Travel Plan",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                   Expanded(child: Divider(thickness: 1.2)),
                 ],
               ),
             ),
+
+            const SizedBox(height: 16),
+
+            // 🧳 Travel Plan Form or Summary
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Select Destination Countries', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  if (selectedPackLabel != null)
-                    CountriesDropdown(
-                      selectedCountries: selectedCountriesPerPack[selectedPackLabel!]!
-                          .map((e) => e.label)
-                          .toList(),
-                      onCountriesChanged: (List<String> countryList) {
-                        setState(() {
-                          selectedCountriesPerPack[selectedPackLabel!] =
-                              countryList.map((name) => DropdownItem(
-                                label: name,
-                                icon: Icons.language, // optional, not shown in flag UI
-                              )).toList();
-                        });
-                      },
-                      maxSelection: physicalCardSpecsPacks[selectedPackLabel!]!.travelCountriesIncluded,
-                    ),
-
-
-                ],
-              ),
+              child: selectedPackLabel != null
+                  ? (isSubmitted
+                  ? _buildTravelPlanSummaryWithKey() // ✅ Show Summary
+                  : _buildTravelForm()) // ✅ Show Form
+                  : const SizedBox(),
             ),
 
-            const SizedBox(height: 20),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text('Select Date', style: TextStyle(fontWeight: FontWeight.w600)),
-            ),
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _selectDate(context, true),
-                      child: _buildDateTile(startDatesPerPack[selectedPackLabel], 'Start Date'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _selectDate(context, false),
-                      child: _buildDateTile(endDatesPerPack[selectedPackLabel], 'End Date'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (selectedPackLabel == null) {
-                      showError(context, "Please select a card pack.");
-                      return;
-                    }
-
-                    final selectedPack = physicalCardSpecsPacks[selectedPackLabel!]!;
-                    final selectedCountries = selectedCountriesPerPack[selectedPackLabel!] ?? [];
-                    final startDate = startDatesPerPack[selectedPackLabel!];
-                    final endDate = endDatesPerPack[selectedPackLabel!];
-
-                    if (selectedCountries.isEmpty) {
-                      showError(context, "Please select at least one destination country.");
-                      return;
-                    }
-
-                    if (selectedCountries.length > selectedPack.travelCountriesIncluded) {
-                      showError(context, "You can select up to ${selectedPack.travelCountriesIncluded} countries.");
-                      return;
-                    }
-
-                    if (startDate == null || endDate == null) {
-                      showError(context, "Please select both start and end dates.");
-                      return;
-                    }
-
-                    final travelDays = endDate.difference(startDate).inDays;
-                    if (travelDays <= 0) {
-                      showError(context, "End date must be after start date.");
-                      return;
-                    }
-
-                    if (travelDays > selectedPack.maxTravelDays) {
-                      showError(context, "You can travel up to ${selectedPack.maxTravelDays} days with this card.");
-                      return;
-                    }
-
-                    showCupertinoDialog(
-                      context: context,
-                      builder: (_) => CupertinoAlertDialog(
-                        title: const Text("Travel Plan Added"),
-                        content: Text(
-                          "Pack: ${selectedPack.label}\n"
-                              "Countries: ${selectedCountries.map((e) => e.label).join(', ')}\n"
-                              "Duration: $travelDays days\n"
-                              "Max Allowed: ${selectedPack.maxTravelDays} days",
-                        ),
-                        actions: [
-                          CupertinoDialogAction(
-                            isDefaultAction: true,
-                            child: const Text("OK"),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text(
-                    'Add Travel plan',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 40), // ⬇️ Bottom spacer
           ],
         ),
       ),
@@ -583,7 +494,6 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
     );
   }
 
-
   @override
   void initState() {
     super.initState();
@@ -592,7 +502,6 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
     cleanNow = DateTime(now.year, now.month, now.day); // 👈 today at 00:00
     maxDate = cleanNow.add(const Duration(days: 90));  // 👈 max range from today
   }
-
   void showError(BuildContext context, String message) {
     showCupertinoDialog(
       context: context,
@@ -646,7 +555,6 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
       ),
     );
   }
-
   void showCupertinoGlassToast(BuildContext context, String message,
       {bool isSuccess = true, ToastPosition position = ToastPosition.bottom}) {
     final overlay = Overlay.of(context);
@@ -684,8 +592,149 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
     overlay.insert(entry);
     Future.delayed(const Duration(seconds: 3), () => entry.remove());
   }
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _summaryKey = GlobalKey();
 
 
+
+  Widget _buildTravelPlanSummary() {
+    final start = startDatesPerPack[selectedPackLabel!]!;
+    final end = endDatesPerPack[selectedPackLabel!]!;
+    final duration = end.difference(start).inDays;
+    final selectedCountries = selectedCountriesPerPack[selectedPackLabel!]!;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF9FAFB), Color(0xFFE5E7EB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFF1C1C1E).withOpacity(0.4),
+          width: 1.3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Center(
+            child: Text(
+              "Travel Plan Summary",
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 17,
+                color: Color(0xFF111827),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // 🔴 Status span
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFFEAEA), Color(0xFFFFDADA)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(
+                  color: const Color(0xFFFF3B30).withOpacity(0.3),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF3B30).withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(CupertinoIcons.clock, size: 18, color: Color(0xFFB91C1C)),
+                  SizedBox(width: 8),
+                  Text(
+                    "Travel Plan In Review",
+                    style: TextStyle(
+                      color: Color(0xFF991B1B),
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // ⏱ Review note
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                "Your travel plan will be reviewed and approved within 72 hours.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: CupertinoColors.systemGrey,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 18),
+          _buildIconRow(CupertinoIcons.creditcard, "Visa Pack", selectedPackLabel!),
+          _buildIconRow(CupertinoIcons.calendar, "Start Date", DateFormat('dd MMM yyyy').format(start)),
+          _buildIconRow(CupertinoIcons.time, "End Date", DateFormat('dd MMM yyyy').format(end)),
+          _buildIconRow(CupertinoIcons.timer, "Duration", "$duration Days"),
+
+
+          const SizedBox(height: 10),
+          Row(
+            children: const [
+              Expanded(child: Divider(thickness: 1.2)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  "Countries",
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+              ),
+              Expanded(child: Divider(thickness: 1.2)),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          buildScrollableCountryRow(selectedCountries.map((e) => e.label).toList()),
+
+          const Divider(height: 28),
+          const Text(
+            "You can create another travel plan after this one ends.",
+            style: TextStyle(
+              color: CupertinoColors.systemGrey,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
 
   Widget _buildDateTile(DateTime? date, String placeholder) {
     return Container(
@@ -706,6 +755,200 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
       ),
     );
   }
+  Widget _buildTravelForm() {
+    final selectedPack = physicalCardSpecsPacks[selectedPackLabel!]!;
+    final selectedCountries = selectedCountriesPerPack[selectedPackLabel!]!;
+    final startDate = startDatesPerPack[selectedPackLabel!];
+    final endDate = endDatesPerPack[selectedPackLabel!];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Select Destination Countries', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        CountriesDropdown(
+          selectedCountries: selectedCountries.map((e) => e.label).toList(),
+          onCountriesChanged: (List<String> countryList) {
+            setState(() {
+              selectedCountriesPerPack[selectedPackLabel!] =
+                  countryList.map((name) => DropdownItem(label: name, icon: null)).toList();
+            });
+          },
+          maxSelection: selectedPack.travelCountriesIncluded,
+        ),
+        const SizedBox(height: 20),
+        const Text('Select Date', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _selectDate(context, true),
+                child: _buildDateTile(startDate, 'Start Date'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _selectDate(context, false),
+                child: _buildDateTile(endDate, 'End Date'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () async {
+              final selectedCountries = selectedCountriesPerPack[selectedPackLabel!] ?? [];
+              final startDate = startDatesPerPack[selectedPackLabel!];
+              final endDate = endDatesPerPack[selectedPackLabel!];
+
+              if (selectedCountries.isEmpty) {
+                showError(context, "Please select at least one destination country.");
+                return;
+              }
+
+              if (startDate == null || endDate == null) {
+                showError(context, "Please select both start and end dates.");
+                return;
+              }
+
+              final travelDays = endDate.difference(startDate).inDays;
+
+              if (travelDays <= 0) {
+                showError(context, "End date must be after start date.");
+                return;
+              }
+
+              if (travelDays > selectedPack.maxTravelDays) {
+                showError(context, "You can travel up to ${selectedPack.maxTravelDays} days with this card.");
+                return;
+              }
+
+              travelPlanSubmittedPerPack[selectedPackLabel!] = true;
+
+              await showCupertinoDialog(
+                context: context,
+                builder: (_) => CupertinoAlertDialog(
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF34C759), Color(0xFF30D158)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0x4034C759),
+                              blurRadius: 10,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.checkmark_alt,
+                          size: 40,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        "Travel Plan Added",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: CupertinoColors.label,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.systemGrey5.withOpacity(0.4),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: CupertinoColors.systemGrey.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            buildDialogRow("Pack", selectedPack.label),
+                            buildDialogRow("Countries", selectedCountries.map((e) => e.label).join(', ')),
+                            buildDialogRow("Duration", "$travelDays days"),
+                            buildDialogRow("Max Allowed", "${selectedPack.maxTravelDays} days"),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          "You’ll be able to submit a new travel plan after this one ends.",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: CupertinoColors.secondaryLabel,
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                  ),
+                  actions: [
+                    CupertinoDialogAction(
+                      isDefaultAction: true,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        setState(() {});
+                        Future.delayed(const Duration(milliseconds: 300), () {
+                          final keyContext = _summaryKey.currentContext;
+                          if (keyContext != null) {
+                            Scrollable.ensureVisible(
+                              keyContext,
+                              duration: const Duration(milliseconds: 600),
+                              curve: Curves.easeInOut,
+                              alignment: 0.2,
+                            );
+                          }
+                        });
+                      },
+                      child: const Text(
+                        "Got it",
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: CupertinoColors.activeBlue,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF000000),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            child: const Text('Add Travel plan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    );
+  }
+
 
   Widget _buildTravelPackSpan(PhysicalCardSpecsPack pack) {
     return Container(
@@ -752,7 +995,6 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
       ),
     );
   }
-
   Widget _buildIconRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -793,4 +1035,11 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
       ),
     );
   }
+  Widget _buildTravelPlanSummaryWithKey() {
+    return Container(
+      key: _summaryKey,
+      child: _buildTravelPlanSummary(),
+    );
+  }
+
 }
