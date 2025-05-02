@@ -23,21 +23,34 @@ class TransactionsWidget extends StatelessWidget {
             TextButton(
               onPressed: () {},
               style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                backgroundColor: const Color(0xFFEBEBEC),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                backgroundColor: const Color(0xFFEAEAEC),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: const Text(
-                'View all',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF201F1F),
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Text(
+                    'View all',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1C1C1E),
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                  SizedBox(width: 6),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: Color(0xFF1C1C1E),
+                  ),
+                ],
               ),
             ),
+
           ],
         ),
         const SizedBox(height: 12),

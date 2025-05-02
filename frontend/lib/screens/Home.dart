@@ -4,15 +4,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:sami/widgets/Transactions_Home.dart';
 import '../widgets/Alerts_Home.dart';
-import '../widgets/BlockCard_Home.dart';
 import '../widgets/Home_Header.dart';
 import '../widgets/Card_Scroller.dart';
 import '../widgets/Account_Summary.dart';
 import '../widgets/Navbar.dart';
-import '../widgets/ActivateDisactivate.dart';
 import '../widgets/UltraSwitch.dart'; // Only imported here
 import '../widgets/Toast.dart';
-import '../widgets/CustomDropdown.dart'; // if needed for reason
+import 'PhysicalCardDetailsScreen.dart'; // if needed for reason
 
 
 // hello
@@ -28,6 +26,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isContactlessEnabled = true;
   bool isEcommerceEnabled = true;
   bool isTpeEnabled = true;
+  String selectedCardLabel = "Visa Youth";
+
+  Map<String, bool> contactlessMap = {};
+  Map<String, bool> ecommerceMap = {};
+  Map<String, bool> tpeMap = {};
 
 
   final ScrollController _scrollController = ScrollController();
@@ -90,10 +93,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     scale: bounceScale.clamp(0.96, 1.02),
                     duration: const Duration(milliseconds: 100),
                     curve: Curves.easeOut,
-                    child: const CardScroller(),
+                    child: CardScroller(
+                      onCardChanged: (label) {
+                        setState(() {
+                          selectedCardLabel = label;
+                          _initCardSettings(label);
+                        });
+                      },
+                    ),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
                   // 📊 Account Summary
                   const Padding(
@@ -101,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: AccountSummary(),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
                   // 🔒 Payment Security Toggles (iOS-style)
                   Padding(
@@ -109,37 +119,102 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const Text(
+                          "Security Options",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
                         _buildPaymentToggleRow(
                           icon: Icons.nfc,
                           label: "Contactless Payments",
-                          value: isContactlessEnabled,
+                          value: contactlessMap[selectedCardLabel] ?? true,
                           onChanged: (val) {
-                            setState(() => isContactlessEnabled = val);
+                            setState(() {
+                              contactlessMap[selectedCardLabel] = val;
+                            });
                           },
                         ),
+
                         const SizedBox(height: 12),
+
                         _buildPaymentToggleRow(
                           icon: Icons.shopping_cart_outlined,
                           label: "E-Commerce Payments",
-                          value: isEcommerceEnabled,
+                          value: ecommerceMap[selectedCardLabel] ?? true,
                           onChanged: (val) {
-                            setState(() => isEcommerceEnabled = val);
+                            setState(() {
+                              ecommerceMap[selectedCardLabel] = val;
+                            });
                           },
                         ),
+
                         const SizedBox(height: 12),
+
                         _buildPaymentToggleRow(
                           icon: Icons.point_of_sale_outlined,
                           label: "TPE Payments",
-                          value: isTpeEnabled,
+                          value: tpeMap[selectedCardLabel] ?? true,
                           onChanged: (val) {
-                            setState(() => isTpeEnabled = val);
+                            setState(() {
+                              tpeMap[selectedCardLabel] = val;
+                            });
                           },
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const PhysicalCardDetailsScreen(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            height: 60,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0F1F5),
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.lock_person_outlined, size: 22, color: Colors.redAccent),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    "Block this card",
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                                Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Colors.black54),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
 
                   // 🚨 Alerts Section
                   const Padding(
@@ -233,7 +308,17 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+  @override
+  void initState() {
+    super.initState();
+    _initCardSettings("Visa Youth");
+  }
 
+  void _initCardSettings(String label) {
+    contactlessMap.putIfAbsent(label, () => true);
+    ecommerceMap.putIfAbsent(label, () => true);
+    tpeMap.putIfAbsent(label, () => true);
+  }
 
 
 }
