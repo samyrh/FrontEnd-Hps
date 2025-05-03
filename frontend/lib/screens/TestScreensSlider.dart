@@ -25,7 +25,7 @@ import 'Landing2.dart';
 import 'Landing3.dart';
 import 'Landing4.dart';
 import 'cards_screen.dart';
-import 'confirmation.dart';
+import 'SecurityCodeSetUp.dart';
 
 class TestScreensSlider extends StatelessWidget {
   const TestScreensSlider({super.key});
@@ -39,7 +39,7 @@ class TestScreensSlider extends StatelessWidget {
       const Landing4(),
       const SignInScreen(),
       const ChangePasswordScreen(),
-      const ConfirmationCodeScreen(),
+      const SecurityCodeSetupScreen(),
       const HomeScreen(),
       const NotificationsScreen(),
       const TransactionsScreen(),
