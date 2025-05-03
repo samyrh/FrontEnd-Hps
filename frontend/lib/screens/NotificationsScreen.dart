@@ -53,12 +53,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFD6F2F0), // iOS light teal
-            Color(0xFFE3E4F7), // soft lavender-grey
-            Color(0xFFF5F6FA), // very subtle fade bottom
+            Color(0xFFEAF7F5), // slightly lighter pastel teal
+            Color(0xFFFDF3F6), // lighter blush pink
+            Color(0xFFF2EDF9), // lighter lavender
           ],
         ),
       ),
+
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
