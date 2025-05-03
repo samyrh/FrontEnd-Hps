@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../screens/sign_in.dart';
@@ -20,20 +23,26 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final currentFocus = FocusNode();
   final newFocus = FocusNode();
   final confirmFocus = FocusNode();
-
+  int remainingTries = 3;
   bool showCurrentPassword = false;
   bool showNewPassword = false;
   bool passwordsMatch = true;
   bool isCurrentPasswordValid = false;
   bool showNewPasswordForm = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    // Remove currentPasswordController listener
+
+    currentPasswordController.addListener(() {
+      if (mounted) setState(() {}); // only update if widget is still in tree
+    });
+
     newPasswordController.addListener(_validate);
     confirmPasswordController.addListener(_validate);
   }
+
 
   @override
   void dispose() {
@@ -44,13 +53,24 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     super.dispose();
   }
 
-
   void _validate() {
     setState(() {
       passwordsMatch = newPasswordController.text == confirmPasswordController.text;
     });
-  }
 
+    if (newPasswordController.text.isNotEmpty && confirmPasswordController.text.isNotEmpty) {
+      // Wait for the current frame to finish before scrolling
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
 
   double _getStrength(String password) {
     double strength = 0;
@@ -95,24 +115,22 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   void _onSave() {
     showCupertinoGlassToast(
       context,
-      'Password changed successfully.',
+      'Password changed successfully. You will be redirected to sign in with your new credentials.',
       isSuccess: true,
       position: ToastPosition.top,
     );
 
-    Future.delayed(const Duration(milliseconds: 1650), () {
+    Future.delayed(const Duration(milliseconds: 1800), () {
       Navigator.of(context).pushAndRemoveUntil(
         PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 480),
-          pageBuilder: (_, animation, __) => FadeTransition(
-            opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-            child: const SignInScreen(),
-          ),
-          transitionsBuilder: (_, animation, __, child) {
+          transitionDuration: const Duration(milliseconds: 620),
+          reverseTransitionDuration: const Duration(milliseconds: 620),
+          pageBuilder: (_, __, ___) => const SignInScreen(showRedirectToast: true),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
             final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic);
             return SlideTransition(
               position: Tween<Offset>(
-                begin: const Offset(0.0, 0.08),
+                begin: const Offset(-1.0, 0.0), // slide from left
                 end: Offset.zero,
               ).animate(curved),
               child: FadeTransition(opacity: curved, child: child),
@@ -121,42 +139,90 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ),
             (route) => false,
       );
-
-      Future.delayed(const Duration(milliseconds: 500), () {
-        showCupertinoGlassToast(
-          context,
-          'Your new password is active. You can now sign in.',
-          isSuccess: true,
-          position: ToastPosition.top,
-        );
-      });
     });
   }
+
+
   Widget _buildNextButton() {
+    final isButtonEnabled = currentPasswordController.text.isNotEmpty && remainingTries > 0;
+
     return Center(
       child: GestureDetector(
-        onTap: () {
+        onTap: isButtonEnabled
+            ? () {
           final input = currentPasswordController.text;
-          final isValid = input == '123';
+          final isValid = input == '123'; // Replace with actual validation
+
           if (isValid) {
-            showCupertinoGlassToast(context, 'Password verified.', isSuccess: true, position: ToastPosition.top);
+            showCupertinoGlassToast(
+              context,
+              'Password verified. Now choose a strong password that includes an uppercase letter, number, and symbol.',
+              isSuccess: true,
+              position: ToastPosition.top,
+            );
             setState(() {
               isCurrentPasswordValid = true;
               showNewPasswordForm = true;
             });
           } else {
-            showCupertinoGlassToast(context, 'Incorrect current password.', isSuccess: false, position: ToastPosition.top);
+            setState(() {
+              currentPasswordController.clear(); //
+              remainingTries -= 1;
+            });
+
+            if (remainingTries <= 0) {
+              showCupertinoGlassToast(
+                context,
+                'Too many incorrect attempts. Redirecting...',
+                isSuccess: false,
+                position: ToastPosition.top,
+              );
+
+              Future.delayed(const Duration(milliseconds: 1800), () {
+                Navigator.of(context).pushAndRemoveUntil(
+                  PageRouteBuilder(
+                    transitionDuration: const Duration(milliseconds: 620),
+                    reverseTransitionDuration: const Duration(milliseconds: 620),
+                    pageBuilder: (_, __, ___) => const SignInScreen(showRedirectToast: true),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic);
+                      return SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(-1.0, 0.0),
+                          end: Offset.zero,
+                        ).animate(curved),
+                        child: FadeTransition(opacity: curved, child: child),
+                      );
+                    },
+                  ),
+                      (route) => false,
+                );
+              });
+            } else {
+              showCupertinoGlassToast(
+                context,
+                'Incorrect current password. $remainingTries attempt${remainingTries > 1 ? 's' : ''} left.',
+                isSuccess: false,
+                position: ToastPosition.top,
+              );
+            }
           }
-        },
+        }
+            : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 280),
           curve: Curves.easeOut,
           width: 260,
           height: 56,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF111111), Color(0xFF1E1E1E)]),
+            gradient: isButtonEnabled
+                ? const LinearGradient(colors: [Color(0xFF111111), Color(0xFF1E1E1E)])
+                : null,
+            color: isButtonEnabled ? null : Colors.grey.shade300,
             borderRadius: BorderRadius.circular(26),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 16, offset: const Offset(0, 4))],
+            boxShadow: isButtonEnabled
+                ? [BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 16, offset: const Offset(0, 4))]
+                : [],
           ),
           child: Center(
             child: Text(
@@ -164,7 +230,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               style: GoogleFonts.inter(
                 fontSize: 16.5,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: isButtonEnabled ? Colors.white : Colors.grey[600],
               ),
             ),
           ),
@@ -172,6 +238,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final password = newPasswordController.text;
@@ -211,6 +278,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ),
         body: SafeArea(
           child: SingleChildScrollView(
+            controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,16 +311,30 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     ],
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Icon(Icons.info_outline, size: 16, color: Colors.black54),
-                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE1E8FF),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.lock_person_rounded,
+                          size: 28,
+                          color: Color(0xFF1C1C1E),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                          'Use a strong, unique password to protect your account.',
+                          'Use a strong, unique password you haven’t used before to protect your account.',
+                          textAlign: TextAlign.justify,
                           style: GoogleFonts.inter(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600, // semi-bold iOS feel
+                            height: 1.5,
+                            color: const Color(0xFF1E1E2D),
                           ),
                         ),
                       ),
@@ -260,23 +342,105 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Step 1: Current password input
-                _buildInputField(
-                  label: 'Current Password',
-                  controller: currentPasswordController,
-                  focusNode: currentFocus,
-                  isPassword: true,
-                  isPasswordVisible: showCurrentPassword,
-                  onToggleVisibility: () =>
-                      setState(() => showCurrentPassword = !showCurrentPassword),
-                  enabled: true,
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 600),
+                  switchInCurve: Curves.easeInOutCubic,
+                  switchOutCurve: Curves.easeInOutCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.04),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: !showNewPasswordForm
+                      ? Column(
+                    key: const ValueKey("step1"),
+                    children: [
+                      _buildInputField(
+                        label: 'Current Password',
+                        controller: currentPasswordController,
+                        focusNode: currentFocus,
+                        isPassword: true,
+                        isPasswordVisible: showCurrentPassword,
+                        onToggleVisibility: () =>
+                            setState(() => showCurrentPassword = !showCurrentPassword),
+                        enabled: true,
+                      ),
+                      const SizedBox(height: 10),
+                      _buildNextButton(),
+                      const SizedBox(height: 12),
+                      if (remainingTries <= 3)
+                        Center(
+                          child: AnimatedOpacity(
+                            opacity: 1,
+                            duration: const Duration(milliseconds: 400),
+                            child: Container(
+                              margin: const EdgeInsets.only(top: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                              decoration: BoxDecoration(
+                                gradient: remainingTries == 0
+                                    ? const LinearGradient(
+                                  colors: [Color(0xFFFFE9E9), Color(0xFFFFF5F5)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                                    : const LinearGradient(
+                                  colors: [Color(0xFFF7F7F7), Color(0xFFF2F2F2)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: remainingTries == 0 ? Colors.red.withOpacity(0.35) : Colors.black12,
+                                  width: 1.3,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Icon(
+                                      remainingTries == 0 ? Icons.warning_amber_rounded : Icons.lock_clock,
+                                      key: ValueKey(remainingTries),
+                                      size: 20,
+                                      color: remainingTries == 0 ? Colors.redAccent : Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: Text(
+                                      remainingTries == 0
+                                          ? 'You’ve reached the limit.\nRedirecting securely...'
+                                          : 'Remaining attempts: $remainingTries',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: remainingTries == 0 ? Colors.redAccent : Colors.black87,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  )
+                      : const SizedBox.shrink(),
                 ),
-
-                if (!showNewPasswordForm) ...[
-                  const SizedBox(height: 10),
-                  _buildNextButton(), // New button to trigger step 2
-                ],
 
                 // Step 2: New password form (with fade-in animation)
                 AnimatedSwitcher(
@@ -334,14 +498,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     VoidCallback? onToggleVisibility,
     required bool enabled,
   }) {
-    final isFocused = focusNode.hasFocus;
     final hasText = controller.text.isNotEmpty;
 
-    final isCurrentPasswordField = label == 'Current Password';
-    final showSuccessStyle = isCurrentPasswordField && isCurrentPasswordValid;
-
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -350,74 +510,61 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             style: GoogleFonts.inter(
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
-              color: enabled ? Colors.black87 : Colors.black45,
+              color: Colors.black.withOpacity(0.85),
             ),
           ),
           const SizedBox(height: 6),
           AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
+            duration: const Duration(milliseconds: 260),
             decoration: BoxDecoration(
-              color: showSuccessStyle
-                  ? Colors.green.withOpacity(0.06)
-                  : enabled
-                  ? Colors.white.withOpacity(0.95)
-                  : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: showSuccessStyle
-                    ? Colors.green.withOpacity(0.7)
-                    : enabled
-                    ? (isFocused
-                    ? const Color(0xFF007AFF).withOpacity(0.6)
-                    : Colors.black.withOpacity(0.1))
-                    : Colors.grey.shade300,
-                width: 1,
-              ),
-              boxShadow: isFocused && enabled
-                  ? [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-                  : [],
+              borderRadius: BorderRadius.circular(20),
+              color: Colors.white.withOpacity(0.6), // Increased from 0.28 to 0.6
             ),
-            child: TextField(
-              enabled: enabled,
-              controller: controller,
-              focusNode: focusNode,
-              obscureText: isPassword && !isPasswordVisible,
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: enabled ? Colors.black : Colors.grey,
-              ),
-              cursorColor: enabled ? Colors.black : Colors.grey,
-              decoration: InputDecoration(
-                hintText: isPassword ? '••••••••' : 'Enter password',
-                border: InputBorder.none,
-                prefixIcon: Icon(
-                  Icons.lock_outline_rounded,
-                  size: 20,
-                  color: showSuccessStyle
-                      ? Colors.green
-                      : (enabled ? Colors.black45 : Colors.grey.shade400),
-                ),
-                suffixIcon: (isPassword && hasText && onToggleVisibility != null)
-                    ? GestureDetector(
-                  onTap: enabled ? onToggleVisibility : null,
-                  child: Icon(
-                    isPasswordVisible
-                        ? Icons.visibility_off
-                        : Icons.visibility,
-                    size: 20,
-                    color: Colors.grey,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: TextField(
+                  enabled: enabled,
+                  controller: controller,
+                  focusNode: focusNode,
+                  obscureText: isPassword && !isPasswordVisible,
+                  style: GoogleFonts.inter(
+                    fontSize: 15.2,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
                   ),
-                )
-                    : null,
-                contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  cursorColor: Colors.black,
+                  decoration: InputDecoration(
+                    hintText: isPassword ? '••••••••' : 'Enter value',
+                    hintStyle: TextStyle(
+                      color: Colors.black.withOpacity(0.35),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    filled: true,
+                    fillColor: Colors.transparent,
+                    border: InputBorder.none,
+                    prefixIcon: Icon(
+                      Icons.lock_outline,
+                      color: Colors.black.withOpacity(0.35),
+                      size: 20,
+                    ),
+                    suffixIcon: (isPassword && hasText && onToggleVisibility != null)
+                        ? GestureDetector(
+                      onTap: onToggleVisibility,
+                      child: Icon(
+                        isPasswordVisible
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        size: 20,
+                        color: Colors.black.withOpacity(0.4),
+                      ),
+                    )
+                        : null,
+                    contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  ),
+                ),
               ),
             ),
           ),
@@ -425,6 +572,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       ),
     );
   }
+
 
 
   Widget _buildConfirmPasswordField() {
