@@ -364,57 +364,103 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
     final isSubmitted = selectedPackLabel != null &&
         travelPlanSubmittedPerPack[selectedPackLabel!] == true;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: ListView(
-          controller: _scrollController,
-          children: [
-            const SizedBox(height: 24), // 🔝 Top spacing after SafeArea
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFD6F2F0), // top left light blue
+            Color(0xFFE3E4F7), // soft faded iOS tone
+            Color(0xFFF5F6FA), // very soft gray bottom
+          ],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: ListView(
+            controller: _scrollController,
+            children: [
+              const SizedBox(height: 24),
 
-            // 🔙 Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.arrow_back, size: 24),
+              // 🔙 Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: const Icon(Icons.arrow_back, size: 24),
+                      ),
                     ),
-                  ),
-                  const Text(
-                    'Travel Plan',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'SF Pro Text',
+                    const Text(
+                      'Travel Plan',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'SF Pro Text',
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            const SizedBox(height: 20), // 👇 space after title
+              const SizedBox(height: 20),
 
-            // 📇 Card Scroller
-            CardScroller(
-              onCardChanged: (label) {
-                setState(() {
-                  selectedPackLabel = label;
-                  selectedCountriesPerPack.putIfAbsent(label, () => []);
-                  startDatesPerPack.putIfAbsent(label, () => null);
-                  endDatesPerPack.putIfAbsent(label, () => null);
-                });
-              },
-            ),
+              // 📇 Card Scroller
+              CardScroller(
+                onCardChanged: (label) {
+                  setState(() {
+                    selectedPackLabel = label;
+                    selectedCountriesPerPack.putIfAbsent(label, () => []);
+                    startDatesPerPack.putIfAbsent(label, () => null);
+                    endDatesPerPack.putIfAbsent(label, () => null);
+                  });
+                },
+              ),
 
-            if (selectedPackLabel != null) ...[
+              if (selectedPackLabel != null) ...[
+                const SizedBox(height: 32),
+
+                // 🔹 Travel Pack Summary Divider
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: const [
+                      Expanded(child: Divider(thickness: 1.2)),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          "Travel Pack Summary",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(thickness: 1.2)),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // 🧾 Travel Pack Details
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: _buildTravelPackSpan(
+                    physicalCardSpecsPacks[selectedPackLabel!]!,
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 32),
 
-              // 🔹 Travel Pack Summary Divider
+              // ✈️ Travel Plan Title
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -423,7 +469,7 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 10),
                       child: Text(
-                        "Travel Pack Summary",
+                        "Travel Plan",
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
@@ -437,59 +483,26 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
 
               const SizedBox(height: 16),
 
-              // 🧾 Travel Pack Details
+              // 🧳 Travel Plan Form or Summary
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildTravelPackSpan(
-                  physicalCardSpecsPacks[selectedPackLabel!]!,
-                ),
+                child: selectedPackLabel != null
+                    ? (isSubmitted
+                    ? _buildTravelPlanSummaryWithKey()
+                    : _buildTravelForm())
+                    : const SizedBox(),
               ),
+
+              const SizedBox(height: 40),
             ],
-
-            const SizedBox(height: 32),
-
-            // ✈️ Travel Plan Title
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: const [
-                  Expanded(child: Divider(thickness: 1.2)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: Text(
-                      "Travel Plan",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                  Expanded(child: Divider(thickness: 1.2)),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // 🧳 Travel Plan Form or Summary
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: selectedPackLabel != null
-                  ? (isSubmitted
-                  ? _buildTravelPlanSummaryWithKey() // ✅ Show Summary
-                  : _buildTravelForm()) // ✅ Show Form
-                  : const SizedBox(),
-            ),
-
-            const SizedBox(height: 40), // ⬇️ Bottom spacer
-          ],
+          ),
         ),
-      ),
-      bottomNavigationBar: Navbar(
-        currentIndex: currentIndex,
-        onTap: (index) {
-          setState(() => currentIndex = index);
-        },
+        bottomNavigationBar: Navbar(
+          currentIndex: currentIndex,
+          onTap: (index) {
+            setState(() => currentIndex = index);
+          },
+        ),
       ),
     );
   }
