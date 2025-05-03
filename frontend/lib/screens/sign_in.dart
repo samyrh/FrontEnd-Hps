@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../widgets/ResetPassword/Identify_User.dart';
+import '../widgets/Toast.dart';
 
 class AppColors {
   static const Color primary = Color(0xFF0066FF);
@@ -16,11 +17,14 @@ class AppColors {
 }
 
 class SignInScreen extends StatefulWidget {
-  const SignInScreen({super.key});
+  final bool showRedirectToast;
+
+  const SignInScreen({super.key, this.showRedirectToast = false});
 
   @override
   State<SignInScreen> createState() => _SignInScreenState();
 }
+
 
 class _SignInScreenState extends State<SignInScreen> {
   final TextEditingController _usernameController = TextEditingController(text: "saminada");
@@ -565,6 +569,19 @@ class _SignInScreenState extends State<SignInScreen> {
     super.initState();
     _usernameController.addListener(_validateInputs);
     _passwordController.addListener(_validateInputs);
+
+    if (widget.showRedirectToast) {
+      // Wait for the screen to fully settle after transition
+      Future.delayed(const Duration(milliseconds: 700), () {
+        showCupertinoGlassToast(
+          context,
+          'Password changed successfully. You’ll be redirected to sign in shortly.',
+          isSuccess: true,
+          position: ToastPosition.top,
+        );
+      });
+    }
+
   }
 
   void _validateInputs() {
