@@ -79,20 +79,21 @@ void showCupertinoGlassToast(
                       size: 30,
                     ),
                     const SizedBox(width: 14),
-                    Expanded(
+                    Flexible(
                       child: Text(
                         message,
                         style: const TextStyle(
-                          fontSize: 17,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: CupertinoColors.white,
                           height: 1.35,
                           decoration: TextDecoration.none,
                         ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
+                        overflow: TextOverflow.visible,
                       ),
                     ),
+
                   ],
                 ),
               ),
