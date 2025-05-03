@@ -1,67 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../screens/sign_in.dart';
+import '../widgets/Toast.dart';
+import 'dart:async';
 
-class Changepassword extends StatefulWidget {
-  const Changepassword({Key? key}) : super(key: key);
+class ChangePasswordScreen extends StatefulWidget {
+  const ChangePasswordScreen({super.key});
 
   @override
-  State<Changepassword> createState() => _ChangepasswordState();
+  State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
 }
 
-class _ChangepasswordState extends State<Changepassword> {
+class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final currentPasswordController = TextEditingController();
   final newPasswordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
-
+  Timer? _debounceTimer;
+  bool hasShownIncorrectToast = false;
   final currentFocus = FocusNode();
   final newFocus = FocusNode();
   final confirmFocus = FocusNode();
 
-  bool showPassword = false;
+  bool showCurrentPassword = false;
   bool showNewPassword = false;
   bool passwordsMatch = true;
+  bool isCurrentPasswordValid = false;
+  bool showNewPasswordForm = false;
 
   @override
   void initState() {
     super.initState();
-    currentPasswordController.addListener(_checkPasswordsMatch);
-    newPasswordController.addListener(_checkPasswordsMatch);
-    confirmPasswordController.addListener(_checkPasswordsMatch);
+    // Remove currentPasswordController listener
+    newPasswordController.addListener(_validate);
+    confirmPasswordController.addListener(_validate);
   }
 
-  void _checkPasswordsMatch() {
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    currentPasswordController.dispose();
+    newPasswordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+
+  void _validate() {
     setState(() {
-      final currentEmpty = currentPasswordController.text.isEmpty;
-
-      if (currentEmpty) {
-        newPasswordController.clear();
-        confirmPasswordController.clear();
-      }
-
       passwordsMatch = newPasswordController.text == confirmPasswordController.text;
     });
   }
 
 
-  @override
-  void dispose() {
-    currentPasswordController.dispose();
-    newPasswordController.dispose();
-    confirmPasswordController.dispose();
-    currentFocus.dispose();
-    newFocus.dispose();
-    confirmFocus.dispose();
-    super.dispose();
-  }
-
-  double _getPasswordStrength(String password) {
-    if (password.isEmpty) return 0.0;
+  double _getStrength(String password) {
     double strength = 0;
     if (password.length >= 6) strength += 0.25;
     if (RegExp(r'[A-Z]').hasMatch(password)) strength += 0.25;
     if (RegExp(r'[0-9]').hasMatch(password)) strength += 0.25;
     if (RegExp(r'[!@#\$&*~_]').hasMatch(password)) strength += 0.25;
     return strength;
+  }
+
+  List<String> _getHints(String password) {
+    final List<String> hints = [];
+    if (password.length < 6) hints.add("Min 6 characters");
+    if (!RegExp(r'[A-Z]').hasMatch(password)) hints.add("Add uppercase letter");
+    if (!RegExp(r'[0-9]').hasMatch(password)) hints.add("Add a number");
+    if (!RegExp(r'[!@#\$&*~_]').hasMatch(password)) hints.add("Add a symbol");
+    return hints;
   }
 
   String _getStrengthLabel(double strength) {
@@ -78,200 +84,240 @@ class _ChangepasswordState extends State<Changepassword> {
     return Colors.green;
   }
 
-  String _getStrengthIcon(double strength) {
-    if (strength <= 0.25) return '❌';
-    if (strength <= 0.5) return '⚠️';
-    if (strength <= 0.75) return '🔵';
-    return '✅';
-  }
-
-  List<String> _getUnmetPasswordHints(String password) {
-    List<String> hints = [];
-    if (password.length < 6) hints.add('Min 6 characters');
-    if (!RegExp(r'[A-Z]').hasMatch(password)) hints.add('Add uppercase letter');
-    if (!RegExp(r'[0-9]').hasMatch(password)) hints.add('Add a number');
-    if (!RegExp(r'[!@#\$&*~_]').hasMatch(password)) hints.add('Add a symbol');
-    return hints;
-  }
-
-  bool _isFormValid() {
+  bool _canSubmit() {
     return currentPasswordController.text.isNotEmpty &&
         newPasswordController.text.isNotEmpty &&
         confirmPasswordController.text.isNotEmpty &&
         passwordsMatch &&
-        _getPasswordStrength(newPasswordController.text) >= 0.75;
+        _getStrength(newPasswordController.text) >= 0.75;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final passwordStrength = _getPasswordStrength(newPasswordController.text);
+  void _onSave() {
+    showCupertinoGlassToast(
+      context,
+      'Password changed successfully.',
+      isSuccess: true,
+      position: ToastPosition.top,
+    );
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      extendBodyBehindAppBar: false,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const BackButton(color: Colors.black),
-        title: const Text(
-          'Card Details',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1E1E2D),
-            fontFamily: 'Inter',
+    Future.delayed(const Duration(milliseconds: 1650), () {
+      Navigator.of(context).pushAndRemoveUntil(
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 480),
+          pageBuilder: (_, animation, __) => FadeTransition(
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+            child: const SignInScreen(),
+          ),
+          transitionsBuilder: (_, animation, __, child) {
+            final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic);
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.08),
+                end: Offset.zero,
+              ).animate(curved),
+              child: FadeTransition(opacity: curved, child: child),
+            );
+          },
+        ),
+            (route) => false,
+      );
+
+      Future.delayed(const Duration(milliseconds: 500), () {
+        showCupertinoGlassToast(
+          context,
+          'Your new password is active. You can now sign in.',
+          isSuccess: true,
+          position: ToastPosition.top,
+        );
+      });
+    });
+  }
+  Widget _buildNextButton() {
+    return Center(
+      child: GestureDetector(
+        onTap: () {
+          final input = currentPasswordController.text;
+          final isValid = input == '123';
+          if (isValid) {
+            showCupertinoGlassToast(context, 'Password verified.', isSuccess: true, position: ToastPosition.top);
+            setState(() {
+              isCurrentPasswordValid = true;
+              showNewPasswordForm = true;
+            });
+          } else {
+            showCupertinoGlassToast(context, 'Incorrect current password.', isSuccess: false, position: ToastPosition.top);
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOut,
+          width: 260,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF111111), Color(0xFF1E1E1E)]),
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 16, offset: const Offset(0, 4))],
+          ),
+          child: Center(
+            child: Text(
+              'Next',
+              style: GoogleFonts.inter(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
           ),
         ),
-        centerTitle: true,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildLockImage(screenWidth, context),
-              _buildTitle(),
-              const SizedBox(height: 20),
-              _customTextField(
-                label: 'Current Password',
-                controller: currentPasswordController,
-                focusNode: currentFocus,
-                isPassword: true,
-                isPasswordVisible: showPassword,
-                onSuffixTap: () => setState(() => showPassword = !showPassword),
-              ),
-              _customTextField(
-                label: 'New Password',
-                controller: newPasswordController,
-                focusNode: newFocus,
-                isPassword: true,
-                isPasswordVisible: showNewPassword,
-                onSuffixTap: () => setState(() => showNewPassword = !showNewPassword),
-                enabled: currentPasswordController.text.isNotEmpty,
-              ),
-              if (newPasswordController.text.isNotEmpty)
-                _buildPasswordStrengthBar(newPasswordController.text, screenWidth),
-              _customTextField(
-                label: 'Confirm Password',
-                controller: confirmPasswordController,
-                focusNode: confirmFocus,
-                isPassword: true,
-                isPasswordVisible: false,
-                showSuffixIcon: false,
-                enabled: currentPasswordController.text.isNotEmpty &&
-                    passwordStrength >= 0.75,
-                borderColor: confirmPasswordController.text.isEmpty
-                    ? Colors.black.withOpacity(0.2)
-                    : (passwordsMatch ? Colors.green : Colors.red),
-              ),
-              if (confirmPasswordController.text.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+    );
+  }
+  @override
+  Widget build(BuildContext context) {
+    final password = newPasswordController.text;
+    final strength = _getStrength(password);
+    final hints = _getHints(password);
+    final isEnabled = _canSubmit();
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFD6F2F0),
+            Color(0xFFE3E4F7),
+            Color(0xFFF5F6FA),
+          ],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: const BackButton(color: Colors.black),
+          title: const Text(
+            'Change Password',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1E1E2D),
+              fontFamily: 'Inter',
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 🔒 Top image
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'assets/lock.png',
+                    width: MediaQuery.of(context).size.width,
+                    height: MediaQuery.of(context).size.height * 0.25,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ℹ️ Info span
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.88),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
                   child: Row(
                     children: [
-                      Icon(
-                        passwordsMatch ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                        size: 18,
-                        color: passwordsMatch ? Colors.green : Colors.red,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        passwordsMatch ? 'Passwords match' : 'Passwords do not match',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: passwordsMatch ? Colors.green : Colors.red,
+                      const Icon(Icons.info_outline, size: 16, color: Colors.black54),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Use a strong, unique password to protect your account.',
+                          style: GoogleFonts.inter(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              const SizedBox(height: 20),
-              _buildSaveButton(),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+                const SizedBox(height: 24),
 
+                // Step 1: Current password input
+                _buildInputField(
+                  label: 'Current Password',
+                  controller: currentPasswordController,
+                  focusNode: currentFocus,
+                  isPassword: true,
+                  isPasswordVisible: showCurrentPassword,
+                  onToggleVisibility: () =>
+                      setState(() => showCurrentPassword = !showCurrentPassword),
+                  enabled: true,
+                ),
 
+                if (!showNewPasswordForm) ...[
+                  const SizedBox(height: 10),
+                  _buildNextButton(), // New button to trigger step 2
+                ],
 
-  Widget _buildLockImage(double screenWidth, BuildContext context) {
-    return ClipRRect(
-      child: Image.asset(
-        'assets/lock.png',
-        width: screenWidth,
-        height: MediaQuery.of(context).size.height * 0.28,
-        fit: BoxFit.cover,
-      ),
-    );
-  }
-
-  Widget _buildTitle() {
-    return const Padding(
-      padding: EdgeInsets.only(top: 14, bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Set a new password',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Colors.black)),
-          SizedBox(height: 6),
-          Text('Make sure it’s different from your old password.',
-              style: TextStyle(fontSize: 13.5, color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSaveButton() {
-    final bool isEnabled = _isFormValid();
-
-    return Center(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        width: 260,
-        decoration: BoxDecoration(
-          color: isEnabled ? Colors.black : Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: isEnabled
-              ? [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ]
-              : [],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            splashColor: Colors.white24,
-            onTap: isEnabled ? () {
-              // TODO: Save action
-            } : null,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 250),
-              opacity: isEnabled ? 1.0 : 0.5,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Center(
-                  child: Text(
-                    'Save',
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: isEnabled ? Colors.white : Colors.grey.shade600,
+                // Step 2: New password form (with fade-in animation)
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.0, 0.05),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
                     ),
                   ),
+                  child: showNewPasswordForm
+                      ? Column(
+                    key: const ValueKey("form"),
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildInputField(
+                        label: 'New Password',
+                        controller: newPasswordController,
+                        focusNode: newFocus,
+                        isPassword: true,
+                        isPasswordVisible: showNewPassword,
+                        onToggleVisibility: () => setState(() => showNewPassword = !showNewPassword),
+                        enabled: true,
+                      ),
+                      if (newPasswordController.text.isNotEmpty)
+                        _buildStrengthSpan(strength, hints),
+
+                      const SizedBox(height: 28),
+                      _buildConfirmPasswordField(),
+                      const SizedBox(height: 40),
+                      _buildSaveButton(isEnabled),
+                      const SizedBox(height: 16),
+                    ],
+                  )
+                      : const SizedBox.shrink(),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -279,39 +325,63 @@ class _ChangepasswordState extends State<Changepassword> {
     );
   }
 
-  Widget _customTextField({
+  Widget _buildInputField({
     required String label,
     required TextEditingController controller,
     required FocusNode focusNode,
     bool isPassword = false,
     bool isPasswordVisible = false,
-    VoidCallback? onSuffixTap,
-    bool showSuffixIcon = true,
-    Color? borderColor,
-    bool enabled = true,
+    VoidCallback? onToggleVisibility,
+    required bool enabled,
   }) {
-    final bool hasInput = controller.text.isNotEmpty;
-    final bool isFocused = focusNode.hasFocus;
-    final Color finalBorderColor = borderColor ??
-        (isFocused ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.15));
+    final isFocused = focusNode.hasFocus;
+    final hasText = controller.text.isNotEmpty;
+
+    final isCurrentPasswordField = label == 'Current Password';
+    final showSuccessStyle = isCurrentPasswordField && isCurrentPasswordValid;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: GoogleFonts.inter(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.black.withOpacity(0.65),
-              )),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: enabled ? Colors.black87 : Colors.black45,
+            ),
+          ),
           const SizedBox(height: 6),
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
             decoration: BoxDecoration(
-              color: const Color(0xFFFDFDFD),
+              color: showSuccessStyle
+                  ? Colors.green.withOpacity(0.06)
+                  : enabled
+                  ? Colors.white.withOpacity(0.95)
+                  : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: finalBorderColor, width: 1.2),
+              border: Border.all(
+                color: showSuccessStyle
+                    ? Colors.green.withOpacity(0.7)
+                    : enabled
+                    ? (isFocused
+                    ? const Color(0xFF007AFF).withOpacity(0.6)
+                    : Colors.black.withOpacity(0.1))
+                    : Colors.grey.shade300,
+                width: 1,
+              ),
+              boxShadow: isFocused && enabled
+                  ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+                  : [],
             ),
             child: TextField(
               enabled: enabled,
@@ -321,30 +391,33 @@ class _ChangepasswordState extends State<Changepassword> {
               style: GoogleFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
-                color: const Color(0xFF1E1E2D),
+                color: enabled ? Colors.black : Colors.grey,
               ),
-              cursorColor: Colors.black,
+              cursorColor: enabled ? Colors.black : Colors.grey,
               decoration: InputDecoration(
-                filled: false,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                hintText: isPassword ? '••••••••' : 'Enter password',
                 border: InputBorder.none,
-                prefixIcon: Padding(
-                  padding: const EdgeInsets.only(left: 10, right: 6),
-                  child: Icon(Icons.lock_outline_rounded, size: 20, color: const Color(0xFFA2A2A7)),
+                prefixIcon: Icon(
+                  Icons.lock_outline_rounded,
+                  size: 20,
+                  color: showSuccessStyle
+                      ? Colors.green
+                      : (enabled ? Colors.black45 : Colors.grey.shade400),
                 ),
-                suffixIcon: (showSuffixIcon && hasInput && onSuffixTap != null)
+                suffixIcon: (isPassword && hasText && onToggleVisibility != null)
                     ? GestureDetector(
-                  onTap: onSuffixTap,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Icon(
-                      isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                      size: 20,
-                      color: const Color(0xFFA2A2A7),
-                    ),
+                  onTap: enabled ? onToggleVisibility : null,
+                  child: Icon(
+                    isPasswordVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    size: 20,
+                    color: Colors.grey,
                   ),
                 )
                     : null,
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
             ),
           ),
@@ -353,80 +426,98 @@ class _ChangepasswordState extends State<Changepassword> {
     );
   }
 
-  Widget _buildPasswordStrengthBar(String password, double screenWidth) {
-    final strength = _getPasswordStrength(password);
-    final label = _getStrengthLabel(strength);
-    final color = _getStrengthColor(strength);
-    final icon = _getStrengthIcon(strength);
-    final hints = _getUnmetPasswordHints(password);
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFF7F8FA), Color(0xFFEDEEF1)],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.black.withOpacity(0.2), width: 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+  Widget _buildConfirmPasswordField() {
+    return Column(
+      children: [
+        _buildInputField(
+          label: 'Confirm Password',
+          controller: confirmPasswordController,
+          focusNode: confirmFocus,
+          isPassword: true,
+          isPasswordVisible: false,
+          enabled: isCurrentPasswordValid,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Fluid strength bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(50),
-              child: Container(
-                height: 10,
-                width: double.infinity,
-                color: Colors.grey.shade200,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final barWidth = constraints.maxWidth * strength;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 800),
-                      curve: Curves.easeInOut,
-                      width: barWidth,
-                      child: ShaderMask(
-                        shaderCallback: (Rect bounds) {
-                          return LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [
-                              color.withOpacity(0.2),
-                              color,
-                              color.withOpacity(0.6),
-                            ],
-                            stops: const [0.0, 0.5, 1.0],
-                            tileMode: TileMode.mirror,
-                          ).createShader(bounds);
-                        },
-                        blendMode: BlendMode.srcATop,
-                        child: Container(
-                          color: color,
-                          width: barWidth,
-                          height: 10,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+
+        if (confirmPasswordController.text.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: passwordsMatch ? Colors.green.withOpacity(0.08) : Colors.red.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: passwordsMatch ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3),
+                width: 1.2,
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(icon, style: const TextStyle(fontSize: 16)),
+                Icon(
+                  passwordsMatch ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                  size: 18,
+                  color: passwordsMatch ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  passwordsMatch ? 'Passwords match' : 'Passwords do not match',
+                  style: GoogleFonts.inter(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: passwordsMatch ? Colors.green : Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStrengthSpan(double strength, List<String> hints) {
+    final color = _getStrengthColor(strength);
+    final label = _getStrengthLabel(strength);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F6F6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: strength),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeOut,
+            builder: (context, value, _) => ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: LinearProgressIndicator(
+                minHeight: 10,
+                value: value,
+                backgroundColor: Colors.grey.shade200,
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.shield_rounded, size: 16, color: color),
                 const SizedBox(width: 6),
                 Text(
                   'Password strength: $label',
@@ -438,38 +529,66 @@ class _ChangepasswordState extends State<Changepassword> {
                 ),
               ],
             ),
+          ),
+          if (hints.isNotEmpty) ...[
             const SizedBox(height: 10),
-            if (hints.isNotEmpty)
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: hints.map((hint) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFDFDFD),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.black.withOpacity(0.2), width: 1.1),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.info_outline, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          hint,
-                          style: GoogleFonts.inter(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: hints.map((hint) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDFDFD),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.black.withOpacity(0.12), width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.info_outline, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(hint, style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton(bool enabled) {
+    return Center(
+      child: GestureDetector(
+        onTap: enabled ? _onSave : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOut,
+          width: 260,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: enabled
+                ? const LinearGradient(colors: [Color(0xFF111111), Color(0xFF1E1E1E)])
+                : null,
+            color: enabled ? null : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: enabled
+                ? [BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 16, offset: const Offset(0, 4))]
+                : [],
+          ),
+          child: Center(
+            child: Text(
+              'Save Password',
+              style: GoogleFonts.inter(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+                color: enabled ? Colors.white : Colors.grey[600],
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );
