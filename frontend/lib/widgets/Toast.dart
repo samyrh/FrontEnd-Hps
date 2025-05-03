@@ -82,16 +82,20 @@ void showCupertinoGlassToast(
                     Flexible(
                       child: Text(
                         message,
+                        textAlign: TextAlign.justify, // Ensures pro-style spacing
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 15.5,
                           fontWeight: FontWeight.w600,
+                          height: 1.5, // Improved line spacing for readability
                           color: CupertinoColors.white,
-                          height: 1.35,
+                          fontFamily: 'SF Pro Text', // Optional: system-like look
                           decoration: TextDecoration.none,
                         ),
                         softWrap: true,
-                        overflow: TextOverflow.visible,
+                        overflow: TextOverflow.fade,
+                        maxLines: 5, // Prevents infinite height but still very flexible
                       ),
+
                     ),
 
                   ],
