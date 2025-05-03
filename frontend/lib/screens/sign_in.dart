@@ -1,7 +1,10 @@
 import 'dart:ui';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../widgets/ResetPassword/Identify_User.dart';
 
 class AppColors {
   static const Color primary = Color(0xFF0066FF);
@@ -105,9 +108,9 @@ class _SignInScreenState extends State<SignInScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFF2F2F7), // light iOS grey
-            Color(0xFFE5E5EA), // middle grey
-            Color(0xFFD1D1D6), // darker grey
+            Color(0xFFD6F2F0),
+            Color(0xFFE3E4F7),
+            Color(0xFFF5F6FA),
           ],
         ),
       ),
@@ -264,11 +267,6 @@ class _SignInScreenState extends State<SignInScreen> {
         final bool isFocused = focusNode.hasFocus;
         final bool hasInput = controller.text.isNotEmpty;
 
-        final Color borderColor = isFocused
-            ? Colors.black.withOpacity(0.35)
-            : AppColors.inputBorder.withOpacity(0.3);
-        final double borderWidth = 1.1;
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -285,57 +283,68 @@ class _SignInScreenState extends State<SignInScreen> {
               child: Text(label),
             ),
             const SizedBox(height: 8),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOutCubic,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderColor, width: borderWidth),
-                color: Colors.white.withOpacity(0.12),
-              ),
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                obscureText: isPassword && !_isPasswordVisible,
-                onChanged: (_) => setState(() {}), // re-render to check input
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.text,
-                ),
-                cursorColor: Colors.black,
-                decoration: InputDecoration(
-                  filled: false,
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  border: InputBorder.none,
-                  prefixIcon: prefixIcon != null
-                      ? Padding(
-                    padding: const EdgeInsets.only(left: 10),
-                    child: Icon(
-                      prefixIcon,
-                      size: 20,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOutCubic,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
                       color: isFocused
-                          ? Colors.black.withOpacity(0.75)
-                          : AppColors.secondaryText,
+                          ? Colors.black.withOpacity(0.25)
+                          : AppColors.inputBorder.withOpacity(0.3),
+                      width: 1.2,
                     ),
-                  )
-                      : null,
-                  suffixIcon: (suffixIcon != null && hasInput)
-                      ? GestureDetector(
-                    onTap: onSuffixTap,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Icon(
-                        suffixIcon,
-                        size: 20,
-                        color: isFocused
-                            ? Colors.black.withOpacity(0.75)
-                            : AppColors.secondaryText,
-                      ),
+                  ),
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    obscureText: isPassword && !_isPasswordVisible,
+                    onChanged: (_) => setState(() {}),
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.text,
                     ),
-                  )
-                      : null,
+                    cursorColor: Colors.black,
+                    decoration: InputDecoration(
+                      filled: false,
+                      contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      border: InputBorder.none,
+                      prefixIcon: prefixIcon != null
+                          ? Padding(
+                        padding: const EdgeInsets.only(left: 10),
+                        child: Icon(
+                          prefixIcon,
+                          size: 20,
+                          color: isFocused
+                              ? Colors.black.withOpacity(0.75)
+                              : AppColors.secondaryText,
+                        ),
+                      )
+                          : null,
+                      suffixIcon: (suffixIcon != null && hasInput)
+                          ? GestureDetector(
+                        onTap: onSuffixTap,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: Icon(
+                            suffixIcon,
+                            size: 20,
+                            color: isFocused
+                                ? Colors.black.withOpacity(0.75)
+                                : AppColors.secondaryText,
+                          ),
+                        ),
+                      )
+                          : null,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -493,7 +502,31 @@ class _SignInScreenState extends State<SignInScreen> {
     return Center(
       child: GestureDetector(
         onTap: () {
-          // TODO: Navigate to forgot password screen
+          Navigator.of(context).push(
+            PageRouteBuilder(
+              transitionDuration: const Duration(milliseconds: 500),
+              pageBuilder: (_, animation, __) => FadeTransition(
+                opacity: animation,
+                child: const IdentifyUserScreen(),
+              ),
+              transitionsBuilder: (_, animation, __, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOutCubic,
+                );
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(1.0, 0.0), // from right to left
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: FadeTransition(
+                    opacity: curved,
+                    child: child,
+                  ),
+                );
+              },
+            ),
+          );
         },
         child: RichText(
           text: TextSpan(
