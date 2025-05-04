@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/card_filter_chip.dart';
 import '../widgets/credit_card_item.dart';
-import 'package:animations/animations.dart';
 
 class MyCardsScreen extends StatefulWidget {
   const MyCardsScreen({Key? key}) : super(key: key);
@@ -11,153 +10,160 @@ class MyCardsScreen extends StatefulWidget {
 }
 
 class _MyCardsScreenState extends State<MyCardsScreen> {
-  String selectedFilter = 'All';
-  int currentIndex = 1; // This screen is at index 1 in the navbar
+  String selectedFilter = 'All Cards';
+  int currentIndex = 1;
 
   final filters = [
-    'All',
+    'All Cards',
+    'Physical Cards',
     'Virtual Cards',
-    'Cards',
-    'Visa Cards',
-    'MasterCards',
   ];
 
   final cards = [
     {
-      'type': 'Visa Cards',
+      'type': 'Physical Cards',
+      'title': 'Visa Youth',
+      'number': '**** **** **** 0001',
+      'color': Color(0xFFFFAB91), // orange
+    },
+    {
+      'type': 'Physical Cards',
+      'title': 'Visa Classic',
+      'number': '**** **** **** 0002',
+      'color': Color(0xFFAED581), // light green
+    },
+    {
+      'type': 'Physical Cards',
       'title': 'Visa Gold',
-      'number': '**** **** **** 1234',
-      'color': Colors.deepPurple,
+      'number': '**** **** **** 0003',
+      'color': Color(0xFFFFD54F), // yellow
     },
     {
-      'type': 'MasterCards',
-      'title': 'MasterCard Platinum',
-      'number': '**** **** **** 9876',
-      'color': Colors.indigo,
+      'type': 'Physical Cards',
+      'title': 'Visa Business',
+      'number': '**** **** **** 0004',
+      'color': Color(0xFF4DB6AC), // teal
     },
     {
-      'type': 'Virtual Cards',
-      'title': 'Virtual Shopping Card',
-      'number': '**** **** **** 4455',
-      'color': Colors.teal,
+      'type': 'Physical Cards',
+      'title': 'Visa Premium+',
+      'number': '**** **** **** 0005',
+      'color': Color(0xFFBA68C8), // purple
     },
     {
-      'type': 'Visa Cards',
-      'title': 'Visa Infinite',
-      'number': '**** **** **** 2233',
-      'color': Color(0xFF1B1B1F),
-    },
-    {
-      'type': 'MasterCards',
-      'title': 'MasterCard World Elite',
-      'number': '**** **** **** 8899',
-      'color': Color(0xFF4A148C),
+      'type': 'Physical Cards',
+      'title': 'Visa International',
+      'number': '**** **** **** 0006',
+      'color': Color(0xFF7986CB), // blue
     },
     {
       'type': 'Virtual Cards',
-      'title': 'Crypto Virtual Card',
-      'number': '**** **** **** 6622',
-      'color': Color(0xFF00ACC1),
+      'title': 'Virtual Standard',
+      'number': '**** **** **** 1001',
+      'color': Color(0xFFCE93D8), // violet
     },
     {
-      'type': 'Cards',
-      'title': 'Business Travel Card',
-      'number': '**** **** **** 3412',
-      'color': Color(0xFF37474F),
+      'type': 'Virtual Cards',
+      'title': 'Virtual Plus',
+      'number': '**** **** **** 1002',
+      'color': Color(0xFFFFF176), // lemon yellow
     },
     {
-      'type': 'Visa Cards',
-      'title': 'Visa Signature',
-      'number': '**** **** **** 7741',
-      'color': Color(0xFF3949AB),
+      'type': 'Virtual Cards',
+      'title': 'Virtual Premium',
+      'number': '**** **** **** 1003',
+      'color': Color(0xFF90CAF9), // light blue
+    },
+    {
+      'type': 'Virtual Cards',
+      'title': 'Virtual Business',
+      'number': '**** **** **** 1004',
+      'color': Color(0xFFE57373), // red
     },
   ];
 
   @override
   Widget build(BuildContext context) {
-    final filteredList = selectedFilter == 'All'
+    final filteredList = selectedFilter == 'All Cards'
         ? cards
         : cards.where((c) => c['type'] == selectedFilter).toList();
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
-
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Text(
-                    'My Cards',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E1E2D),
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 10,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.chevron_left, color: Colors.black),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFD6F2F0),
+            Color(0xFFE3E4F7),
+            Color(0xFFF5F6FA),
+          ],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        extendBodyBehindAppBar: true,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Text(
+                      'My Cards',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E1E2D),
+                        fontFamily: 'Inter',
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Filter chips
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: filters.map((label) {
-                final isSelected = selectedFilter == label;
-                return GestureDetector(
-                  onTap: () => setState(() => selectedFilter = label),
-                  child: FilterCardChip(
-                    label: label,
-                    isSelected: isSelected,
-                  ),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Cards List
-            Expanded(
-              child: PageTransitionSwitcher(
-                duration: const Duration(milliseconds: 400),
-                transitionBuilder: (child, animation, secondaryAnimation) =>
-                    SharedAxisTransition(
-                      animation: animation,
-                      secondaryAnimation: secondaryAnimation,
-                      transitionType: SharedAxisTransitionType.horizontal,
-                      child: child,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 10,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.chevron_left, color: Colors.black),
+                        ),
+                      ),
                     ),
+                  ],
+                ),
+              ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: filters.map((label) {
+                  final isSelected = selectedFilter == label;
+                  return GestureDetector(
+                    onTap: () => setState(() => selectedFilter = label),
+                    child: FilterCardChip(
+                      label: label,
+                      isSelected: isSelected,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+              Expanded(
                 child: ListView.builder(
-                  key: ValueKey(selectedFilter),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: filteredList.length,
                   itemBuilder: (context, index) {
@@ -170,36 +176,34 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
                   },
                 ),
               ),
-            ),
-
-            // Add Card Button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 6,
                     ),
-                    elevation: 6,
-                  ),
-                  onPressed: () {},
-                  child: const Text(
-                    '+ Add Card',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
+                    onPressed: () {},
+                    child: const Text(
+                      '+ Add Card',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
