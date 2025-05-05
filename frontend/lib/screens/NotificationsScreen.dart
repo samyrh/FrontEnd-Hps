@@ -181,12 +181,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ),
 
-        bottomNavigationBar: Navbar(
-          currentIndex: currentIndex,
-          onTap: (index) {
-            setState(() => currentIndex = index);
-          },
-        ),
       ),
     );
   }
