@@ -1,17 +1,26 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'notificationparametre.dart';
-import 'PolicyScreen.dart';
 
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+
+
+class Notificationparametre extends StatefulWidget {
+  const Notificationparametre({Key? key}) : super(key: key);
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  State<Notificationparametre> createState() => _NotificationparametreState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  bool faceIdEnabled = false;
+class _NotificationparametreState extends State<Notificationparametre> {
+  bool switch1 = true;
+  bool switch2 = true;
+  bool switch3 = true;
+  bool switch4 = true;
+  bool switch5 = true;
+  bool switch6 = true;
+  bool switch7 = true;
+  bool switch8 = true;
+  bool switch9 = true;
+  bool switch10 = true;
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
@@ -25,7 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
           title: const Center(
             child: Text(
-              'Log out',
+              'Notifications',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
@@ -105,7 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Text(
-                      'Settings',
+                      'Notifications',
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                     ),
                     IconButton(
@@ -138,64 +147,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 const SizedBox(height: 32),
 
-                // Settings Items
                 Expanded(
                   child: ListView(
                     children: [
                       const Padding(
-                        padding: EdgeInsets.only(left: 4, bottom: 8),
-                        child: Text('GENERAL',
-                            style: TextStyle(fontSize: 13, color: Colors.grey)),
+                        padding: EdgeInsets.only(left: 4, bottom: 8, top: 12),
+                        child: Text('Transaction',
+                            style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
                       ),
-                      const SizedBox(height: 6),
-
                       SettingsItem(
-                        title: 'Notifications',
-                        icon: Icons.notifications_none_rounded,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const Notificationparametre()),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      SettingsItem(
-                        title: 'Policy',
-                        icon: Icons.privacy_tip_rounded,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const PolicyScreen()),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      const SettingsItem(
-                        title: 'Change Language',
-                        icon: Icons.language_rounded,
-                      ),
-                      const SizedBox(height: 12),
-
-                      const SettingsItem(
-                        title: 'Change Password',
-                        icon: Icons.lock_outline_rounded,
-                      ),
-                      const SizedBox(height: 12),
-
-                      SettingsItem(
-                        title: 'Face ID',
-                        imagePath: 'assets/FaceID.png',
+                        title: 'Incoming transaction',
+                        subtitle: 'Receive a notification for incoming transactions',
                         hasSwitch: true,
                         switchWidget: CupertinoSwitch(
-                          value: faceIdEnabled,
                           activeColor: CupertinoColors.activeBlue,
-                          onChanged: (val) => setState(() => faceIdEnabled = val),
+                          value: switch4,
+                          onChanged: (val) => setState(() => switch4 = val),
                         ),
                       ),
+
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4, bottom: 8, top: 12),
+                        child: Text(
+                          'Travel Plan',
+                          style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      SettingsItem(
+                        title: 'Travel plan approved',
+                        subtitle: 'Get notified when your travel plan is validated',
+                        hasSwitch: true,
+                        switchWidget: CupertinoSwitch(
+                          activeColor: CupertinoColors.activeBlue,
+                          value: switch5,
+                          onChanged: (val) => setState(() => switch5 = val),
+                        ),
+                      ),
+                      SettingsItem(
+                        title: 'Travel plan reminder',
+                        subtitle: 'Reminder when your travel plan is about to expire',
+                        hasSwitch: true,
+                        switchWidget: CupertinoSwitch(
+                          activeColor: CupertinoColors.activeBlue,
+                          value: switch6,
+                          onChanged: (val) => setState(() => switch6 = val),
+                        ),
+                      ),
+
+                      // 🔔 Alerts Section
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4, bottom: 8, top: 12),
+                        child: Text(
+                          'Alerts',
+                          style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      SettingsItem(
+                        title: 'Transaction alert received',
+                        subtitle: 'Get notified when a transaction alert is triggered',
+                        hasSwitch: true,
+                        switchWidget: CupertinoSwitch(
+                          activeColor: CupertinoColors.activeBlue,
+                          value: switch7,
+                          onChanged: (val) => setState(() => switch7 = val),
+                        ),
+                      ),
+                      SettingsItem(
+                        title: 'Suspicious activity detected',
+                        subtitle: 'Be alerted when we detect unusual activity',
+                        hasSwitch: true,
+                        switchWidget: CupertinoSwitch(
+                          activeColor: CupertinoColors.activeBlue,
+                          value: switch8,
+                          onChanged: (val) => setState(() => switch8 = val),
+                        ),
+                      ),
+
+// 💳 Cards Section
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4, bottom: 8, top: 12),
+                        child: Text(
+                          'Cards',
+                          style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      SettingsItem(
+                        title: 'Card blocked',
+                        subtitle: 'Notification when a card is blocked',
+                        hasSwitch: true,
+                        switchWidget: CupertinoSwitch(
+                          activeColor: CupertinoColors.activeBlue,
+                          value: switch9,
+                          onChanged: (val) => setState(() => switch9 = val),
+                        ),
+                      ),
+
                     ],
                   ),
                 ),
@@ -210,8 +256,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 class SettingsItem extends StatelessWidget {
   final String title;
-  final IconData? icon;
-  final String? imagePath;
+  final String? subtitle;
   final bool hasSwitch;
   final Widget? switchWidget;
   final VoidCallback? onTap;
@@ -219,8 +264,7 @@ class SettingsItem extends StatelessWidget {
   const SettingsItem({
     Key? key,
     required this.title,
-    this.icon,
-    this.imagePath,
+    this.subtitle,
     this.hasSwitch = false,
     this.switchWidget,
     this.onTap,
@@ -228,10 +272,6 @@ class SettingsItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget leadingIcon = imagePath != null
-        ? Image.asset(imagePath!, width: 24, height: 24)
-        : Icon(icon, size: 22, color: Colors.black);
-
     return GestureDetector(
       onTap: hasSwitch ? null : onTap,
       child: Container(
@@ -251,17 +291,25 @@ class SettingsItem extends StatelessWidget {
         ),
         child: Row(
           children: [
-            leadingIcon,
-            const SizedBox(width: 16),
             Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2.0),
+                      child: Text(
+                        subtitle!,
+                        style: const TextStyle(fontSize: 12.5, color: Colors.grey),
+                      ),
+                    ),
+                ],
               ),
             ),
-            hasSwitch
-                ? switchWidget!
-                : const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+            if (hasSwitch && switchWidget != null) switchWidget!,
           ],
         ),
       ),
