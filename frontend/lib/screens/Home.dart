@@ -244,14 +244,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
 
-      // 📌 Bottom Navbar
-      bottomNavigationBar: Navbar(
+      bottomNavigationBar: IOSBottomNavbar(
         currentIndex: currentIndex,
-        onTap: (index) {
-          setState(() {
-            currentIndex = index;
-          });
-        },
+        onTap: (index) => setState(() => currentIndex = index),
       ),
     );
   }

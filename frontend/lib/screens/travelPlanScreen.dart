@@ -43,8 +43,8 @@ class PhysicalCardSpecsPack {
     required this.maxTravelDays,
     required this.internationalWithdrawLimitPerTravel,
   });
-  
-  
+
+
 }
 
 final Map<String, PhysicalCardSpecsPack> physicalCardSpecsPacks = {
@@ -497,12 +497,7 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: Navbar(
-          currentIndex: currentIndex,
-          onTap: (index) {
-            setState(() => currentIndex = index);
-          },
-        ),
+
       ),
     );
   }

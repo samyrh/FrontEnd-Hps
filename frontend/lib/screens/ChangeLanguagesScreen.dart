@@ -92,13 +92,6 @@ class _ChangeLanguageState extends State<ChangeLanguage> {
         ),
       ),
 
-      bottomNavigationBar: Navbar(
-        currentIndex: currentIndex,
-        onTap: (index) {
-          setState(() => currentIndex = index);
-          // Optional: Add navigation logic if needed
-        },
-      ),
     );
   }
 }

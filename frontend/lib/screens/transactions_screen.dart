@@ -235,12 +235,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: Navbar(
-          currentIndex: currentIndex,
-          onTap: (index) {
-            setState(() => currentIndex = index);
-          },
-        ),
       ),
     );
   }
