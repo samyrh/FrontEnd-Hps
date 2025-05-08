@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 class HomeHeader extends StatefulWidget {
-  const HomeHeader({super.key});
+  final VoidCallback? onNotificationsPressed; // 👈 ADD THIS LINE
+
+  const HomeHeader({super.key, this.onNotificationsPressed}); // 👈 Update the constructor
 
   @override
   State<HomeHeader> createState() => _HomeHeaderState();
 }
+
 
 class _HomeHeaderState extends State<HomeHeader> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -105,54 +108,57 @@ class _HomeHeaderState extends State<HomeHeader> with SingleTickerProviderStateM
         ),
 
         // 🔔 Notification Icon + animated badge
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            ScaleTransition(
-              scale: _scaleAnimation,
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.05),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.notifications_none_rounded,
-                  size: 24,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-            Positioned(
-              top: -4,
-              right: -4,
-              child: Container(
-                width: 20,
-                height: 20,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.redAccent,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
-                  ],
-                ),
-                child: const Text(
-                  '3',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    height: 1,
+        GestureDetector(
+          onTap: widget.onNotificationsPressed, // 👈 Call the callback
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ScaleTransition(
+                scale: _scaleAnimation,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.notifications_none_rounded,
+                    size: 24,
+                    color: Colors.black87,
                   ),
                 ),
               ),
-            ),
-          ],
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
+                  ),
+                  child: const Text(
+                    '3',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
