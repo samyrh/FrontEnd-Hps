@@ -1,6 +1,12 @@
 // home4.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart'; // ✅ For routing
+import 'package:intl/intl.dart';
+
+// ✅ Assuming you put your toast in a separate file
+import '../widgets/Toast.dart';
+import 'Home.dart'; // ✅ Make sure HomeScreen is imported (if needed)
 
 class Landing4 extends StatelessWidget {
   const Landing4({Key? key}) : super(key: key);
@@ -75,7 +81,31 @@ class Landing4 extends StatelessWidget {
                     width: double.infinity,
                     child: TextButton(
                       onPressed: () {
-                        // Finish onboarding or move to main app
+                        // 1️⃣ Navigate to home
+                        context.go('/home');
+
+                        // 2️⃣ Get current time & user details
+                        final now = DateTime.now();
+                        final hour = now.hour;
+                        final name = 'Nada'; // Replace with dynamic username if needed
+
+                        // 3️⃣ Build compact message
+                        String message;
+                        if (hour < 12) {
+                          message = 'Good morning, $name! Let’s make today productive. (${DateFormat('MMMM d, y').format(now)})';
+                        } else if (hour < 18) {
+                          message = 'Good afternoon, $name! Keep up the momentum. (${DateFormat('MMMM d, y').format(now)})';
+                        } else {
+                          message = 'Good evening, $name! Great job today—time to relax. (${DateFormat('MMMM d, y').format(now)})';
+                        }
+
+                        // 4️⃣ Show toast
+                        showCupertinoGlassToast(
+                          context,
+                          message,
+                          isSuccess: true,
+                          position: ToastPosition.top,
+                        );
                       },
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFF0066FF),
