@@ -56,6 +56,7 @@ dev_dependencies:
   lucide_icons: ^0.257.0
   font_awesome_flutter: ^10.5.0
   flutter_staggered_grid_view: ^0.6.2
+  go_router: ^12.1.0
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -87,11 +88,8 @@ flutter:
       - assets/lock.png
       - assets/add_card.png
       - assets/reset1.jpg
-<<<<<<< HEAD
       - assets/policy.jpg
-=======
       - assets/profile.png
->>>>>>> 567a2a4ecad23037cb36cd44afbf5f083c77b9a0
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
