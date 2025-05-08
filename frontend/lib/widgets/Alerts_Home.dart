@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
 class AlertsWidget extends StatelessWidget {
-  const AlertsWidget({super.key});
+  final VoidCallback? onViewAll; // ✅ added callback
+
+  const AlertsWidget({super.key, this.onViewAll}); // ✅ updated constructor
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 🔔 Header with View All
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -20,7 +23,7 @@ class AlertsWidget extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: onViewAll, // ✅ trigger passed callback
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                 backgroundColor: const Color(0xFFEAEAEC),
@@ -49,15 +52,17 @@ class AlertsWidget extends StatelessWidget {
                 ],
               ),
             ),
-
           ],
         ),
         const SizedBox(height: 12),
+
+        // 🔔 Alerts List
         ..._alerts.map((alert) => _buildAlertCard(alert)).toList(),
       ],
     );
   }
 
+  // 🔧 Build each Alert card
   Widget _buildAlertCard(_Alert alert) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -102,6 +107,7 @@ class AlertsWidget extends StatelessWidget {
   }
 }
 
+// 💼 Model for Alert
 class _Alert {
   final String title;
   final String description;
@@ -116,6 +122,7 @@ class _Alert {
   });
 }
 
+// 📢 Sample Alerts List
 const List<_Alert> _alerts = [
   _Alert(
     title: 'Unusual Login Attempt',
