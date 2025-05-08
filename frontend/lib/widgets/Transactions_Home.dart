@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class TransactionsWidget extends StatelessWidget {
-  const TransactionsWidget({super.key});
+  final VoidCallback? onViewAll;
+
+  const TransactionsWidget({super.key, this.onViewAll});
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +23,7 @@ class TransactionsWidget extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: onViewAll, // ✅ This now calls your callback
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                 backgroundColor: const Color(0xFFEAEAEC),
@@ -50,72 +52,78 @@ class TransactionsWidget extends StatelessWidget {
                 ],
               ),
             ),
-
           ],
         ),
         const SizedBox(height: 12),
 
         // Transactions List
-        ..._transactions.map((tx) => _buildTransactionItem(tx)).toList(),
+        ..._transactions.map((tx) => _buildTransactionItem(context, tx)).toList(),
       ],
     );
   }
 
-  Widget _buildTransactionItem(_Transaction tx) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F2F7),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E5EA)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: tx.color.withOpacity(0.1),
-              shape: BoxShape.circle,
+  Widget _buildTransactionItem(BuildContext context, _Transaction tx) {
+    return GestureDetector(
+      onTap: () {
+        // ✅ Optional: You can navigate to a detailed transaction screen here
+        // For example:
+        // context.push('/transactions', extra: {'transactionId': tx.id});
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F2F7),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5E5EA)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: tx.color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(tx.icon, color: tx.color, size: 20),
             ),
-            child: Icon(tx.icon, color: tx.color, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tx.title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1C1C1E),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tx.title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1C1C1E),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  tx.date,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
+                  const SizedBox(height: 2),
+                  Text(
+                    tx.date,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            tx.amount,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: tx.amount.startsWith('-')
-                  ? const Color(0xFFFF3B30)
-                  : const Color(0xFF32D74B),
+            const SizedBox(width: 10),
+            Text(
+              tx.amount,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: tx.amount.startsWith('-')
+                    ? const Color(0xFFFF3B30)
+                    : const Color(0xFF32D74B),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
