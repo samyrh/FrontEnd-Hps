@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:sami/screens/PhysicalCardDetailsScreen.dart';
+import 'package:sami/screens/VirtualCardDetailsScreen.dart';
+
+
 
 class SuccessScreen extends StatelessWidget {
+  final String cardType;
+  final String packName;
   final VoidCallback? onBackToHome;
-  final VoidCallback? onViewCardDetails;
 
   const SuccessScreen({
     Key? key,
+    required this.cardType,
+    required this.packName,
     this.onBackToHome,
-    this.onViewCardDetails,
   }) : super(key: key);
 
   @override
@@ -25,7 +31,7 @@ class SuccessScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Created Successfully !',
+                    'Created Successfully!',
                     style: TextStyle(
                       color: const Color(0xFF144EA6),
                       fontSize: 27,
@@ -39,7 +45,7 @@ class SuccessScreen extends StatelessWidget {
                   SizedBox(
                     width: 307,
                     child: Text(
-                      'Your virtual card has been created successfully.',
+                      'Your $packName ($cardType) card has been created successfully. A notification will be sent once it’s ready for use.',
                       style: TextStyle(
                         color: const Color(0xFF5D5A5A),
                         fontSize: 15,
@@ -74,7 +80,13 @@ class SuccessScreen extends StatelessWidget {
                           ),
                           elevation: 6,
                         ),
-                        onPressed: onBackToHome ?? () {},
+                        onPressed: onBackToHome ??
+                                () {
+                              Navigator.popUntil(
+                                context,
+                                    (route) => route.isFirst,
+                              );
+                            },
                         child: const Text(
                           'Back to Home',
                           style: TextStyle(
@@ -89,7 +101,7 @@ class SuccessScreen extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF144EA6),
+                          backgroundColor: const Color(0xFF144EA6),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -97,7 +109,23 @@ class SuccessScreen extends StatelessWidget {
                           ),
                           elevation: 6,
                         ),
-                        onPressed: onViewCardDetails ?? () {},
+                        onPressed: () {
+                          if (cardType.toLowerCase().contains('virtual')) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const VirtualCardDetailsScreen(),
+                              ),
+                            );
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const PhysicalCardDetailsScreen(),
+                              ),
+                            );
+                          }
+                        },
                         child: const Text(
                           'Card Details',
                           style: TextStyle(
