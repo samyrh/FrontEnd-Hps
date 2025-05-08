@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 
 class CardScroller extends StatefulWidget {
   final Function(String selectedPackLabel)? onCardChanged;
+  final Function(String selectedPackLabel)? onCardTap; // 👈 NEW
 
-  const CardScroller({super.key, this.onCardChanged});
+  const CardScroller({
+    super.key,
+    this.onCardChanged,
+    this.onCardTap, // 👈 NEW
+  });
 
   @override
   State<CardScroller> createState() => _CardScrollerState();
@@ -39,7 +44,6 @@ class _CardScrollerState extends State<CardScroller> {
   void initState() {
     super.initState();
 
-    // 👂 Listen for manual scroll updates
     _pageController.addListener(() {
       final index = _pageController.page?.round() ?? 0;
       if (_currentPage != index) {
@@ -49,29 +53,34 @@ class _CardScrollerState extends State<CardScroller> {
       }
     });
 
-    // ✅ This triggers the label for the first visible card automatically!
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final label = _packLabels[_currentPage % _packLabels.length];
       widget.onCardChanged?.call(label);
     });
   }
 
-
   Widget _buildCard(int index) {
     final actualIndex = index % _cardGradients.length;
     final isFocused = index == _currentPage;
+    final currentLabel = _packLabels[actualIndex];
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: isFocused ? 0.9 : 0.9, end: isFocused ? 1.0 : 0.9),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      builder: (context, scale, child) {
-        return Transform.scale(
-          scale: scale,
-          child: child,
-        );
+    return GestureDetector(
+      onTap: () {
+        // ✅ When tapped, send back the selected card label
+        widget.onCardTap?.call(currentLabel);
       },
-      child: _buildCardContainer(_cardGradients[actualIndex]),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: isFocused ? 0.9 : 0.9, end: isFocused ? 1.0 : 0.9),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        builder: (context, scale, child) {
+          return Transform.scale(
+            scale: scale,
+            child: child,
+          );
+        },
+        child: _buildCardContainer(_cardGradients[actualIndex]),
+      ),
     );
   }
 
