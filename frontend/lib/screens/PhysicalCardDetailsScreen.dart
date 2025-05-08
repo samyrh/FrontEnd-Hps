@@ -17,7 +17,12 @@ class AlwaysDisabledFocusNode extends FocusNode {
 }
 
 class PhysicalCardDetailsScreen extends StatefulWidget {
-  const PhysicalCardDetailsScreen({Key? key}) : super(key: key);
+  final bool autoScroll; // ✅ NEW
+
+  const PhysicalCardDetailsScreen({
+    Key? key,
+    this.autoScroll = false, // ✅ default false
+  }) : super(key: key);
 
   @override
   State<PhysicalCardDetailsScreen> createState() => _PhysicalCardDetailsScreenState();
@@ -1606,6 +1611,21 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       ),
     );
   }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (widget.autoScroll) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+        );
+      });
+    }
+  }
+
   Widget _buildBlockCardSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
