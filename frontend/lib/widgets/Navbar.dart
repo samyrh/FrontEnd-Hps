@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../widgets/Toast.dart';
 
 class IOSBottomNavbar extends StatelessWidget {
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-
-  const IOSBottomNavbar({
-    super.key,
-    required this.currentIndex,
-    required this.onTap,
-  });
+  const IOSBottomNavbar({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +18,9 @@ class IOSBottomNavbar extends StatelessWidget {
     ];
 
     final width = MediaQuery.of(context).size.width;
+
+    // ✅ Dynamically detect current route
+    final currentIndex = _getIndexFromRoute(context);
 
     return SafeArea(
       bottom: true,
@@ -45,10 +43,14 @@ class IOSBottomNavbar extends StatelessWidget {
                 final isSelected = index == currentIndex;
 
                 return GestureDetector(
-                  onTap: () => onTap(index),
+                  onTap: () {
+                    if (index != currentIndex) {
+                      _handleNavigation(context, index); // ✅ Handle routing
+                    }
+                  },
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 4), // Move everything up a bit
+                    padding: const EdgeInsets.only(bottom: 4),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -95,6 +97,65 @@ class IOSBottomNavbar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // ✅ Get index based on route
+  int _getIndexFromRoute(BuildContext context) {
+    final location = GoRouterState.of(context).uri.toString();
+    if (location.startsWith('/cards')) return 1;
+    if (location.startsWith('/ai_support')) return 2;
+    if (location.startsWith('/menu')) return 3;
+    return 0; // default: home
+  }
+
+  // ✅ Handle routing logic + toasts here
+  void _handleNavigation(BuildContext context, int index) {
+    switch (index) {
+      case 0:
+        context.push('/home'); // ✅ use push now
+        Future.delayed(const Duration(milliseconds: 300), () {
+          showCupertinoGlassToast(
+            context,
+            'Welcome back to Home 🏠.',
+            isSuccess: true,
+            position: ToastPosition.top,
+          );
+        });
+        break;
+      case 1:
+        context.push('/cards'); // ✅ push
+        Future.delayed(const Duration(milliseconds: 300), () {
+          showCupertinoGlassToast(
+            context,
+            'Here are all your Physical & Virtual cards, tap a card to flip the card and swipe left for card details.',
+            isSuccess: true,
+            position: ToastPosition.top,
+          );
+        });
+        break;
+      case 2:
+        context.push('/ai_support'); // ✅ push
+        Future.delayed(const Duration(milliseconds: 300), () {
+          showCupertinoGlassToast(
+            context,
+            'Get instant AI assistance here anytime, ask questions, manage your account, or solve issues with smart help.',
+            isSuccess: true,
+            position: ToastPosition.top,
+          );
+        });
+        break;
+      case 3:
+        context.push('/menu'); // ✅ push
+        Future.delayed(const Duration(milliseconds: 300), () {
+          showCupertinoGlassToast(
+            context,
+            'Here you’ll find all the services you need.',
+            isSuccess: true,
+            position: ToastPosition.top,
+          );
+        });
+        break;
+    }
   }
 }
 
