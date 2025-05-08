@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../widgets/Toast.dart';
 import '../widgets/card_filter_chip.dart';
 import '../widgets/credit_card_item.dart';
+import 'package:go_router/go_router.dart';
 
 class MyCardsScreen extends StatefulWidget {
   const MyCardsScreen({Key? key}) : super(key: key);
@@ -168,14 +170,78 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
                   itemCount: filteredList.length,
                   itemBuilder: (context, index) {
                     final card = filteredList[index];
-                    return CreditCardItem(
-                      title: card['title'] as String,
-                      number: card['number'] as String,
-                      color: card['color'] as Color,
+                    final title = card['title'] as String;
+                    final number = card['number'] as String;
+                    final color = card['color'] as Color;
+                    final type = card['type'] as String;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Dismissible(
+                        key: ValueKey(number),
+                        direction: DismissDirection.endToStart,
+                        confirmDismiss: (_) async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                title: const Text('Confirm Selection'),
+                                content: Text(
+                                  'Do you want to manage the "$title" card?',
+                                  style: const TextStyle(fontSize: 15),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.black,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: const Text('Confirm'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+
+                          if (confirmed == true) {
+                            if (type == 'Physical Cards') {
+                              context.push('/physical_card_details');
+                            } else {
+                              context.push('/virtual_card_details');
+                            }
+                          }
+
+                          // Always return false to prevent auto-dismiss
+                          return false;
+                        },
+                        background: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          alignment: Alignment.centerRight,
+                          child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 28),
+                        ),
+                        child: CreditCardItem(
+                          title: title,
+                          number: number,
+                          color: color,
+                        ),
+                      ),
                     );
                   },
                 ),
               ),
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 child: SizedBox(
@@ -190,7 +256,19 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
                       ),
                       elevation: 6,
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      context.push('/add_card');
+
+                      // ✅ Show the toast after navigating
+                      Future.delayed(const Duration(milliseconds: 300), () {
+                        showCupertinoGlassToast(
+                          context,
+                          'Choose your card type first, then select your preferred pack.',
+                          isSuccess: true,
+                          position: ToastPosition.top,
+                        );
+                      });
+                    },
                     child: const Text(
                       '+ Add Card',
                       style: TextStyle(
@@ -203,8 +281,10 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
                 ),
               ),
             ],
+
           ),
         ),
+
       ),
     );
   }
