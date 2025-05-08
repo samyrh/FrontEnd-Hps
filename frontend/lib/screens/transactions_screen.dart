@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/Navbar.dart';
 import '../widgets/filter_pill.dart';
 import '../widgets/transaction_card.dart';
 
