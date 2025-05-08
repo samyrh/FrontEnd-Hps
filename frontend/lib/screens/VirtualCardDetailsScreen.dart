@@ -8,7 +8,6 @@ import '../widgets/CustomDropdown.dart';
 import '../widgets/OtpVerificationDialog.dart';
 import '../widgets/Toast.dart';
 import '../widgets/UltraSwitch.dart';
-import 'package:table_calendar/table_calendar.dart';
 
 //test
 class AlwaysDisabledFocusNode extends FocusNode {
