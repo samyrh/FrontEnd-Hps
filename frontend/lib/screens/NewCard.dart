@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import '../widgets/CustomDropdown.dart';
-import '../widgets/LimitSlider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/cupertino.dart';
 
 //test
@@ -252,6 +252,83 @@ class _AddNewCardState extends State<AddNewCard> {
       internationalWithdrawLimitPerTravel: 15000,
     ),
   };
+
+  final Map<String, List<Gradient>> physicalCardColors = {
+    'Visa Youth': [
+      LinearGradient(colors: [Color(0xFFB7F8DB), Color(0xFF50A7C2)]),
+      LinearGradient(colors: [Color(0xFFFCE38A), Color(0xFFF38181)]),
+      LinearGradient(colors: [Color(0xFFFC5C7D), Color(0xFF6A82FB)]),
+      LinearGradient(colors: [Color(0xFF12FFF7), Color(0xFFB6EADA)]),
+      LinearGradient(colors: [Color(0xFFE6DADA), Color(0xFF274046)]),
+    ],
+    'Visa Classic': [
+      LinearGradient(colors: [Color(0xFFFFAFBD), Color(0xFFFFC3A0)]),
+      LinearGradient(colors: [Color(0xFF00C9FF), Color(0xFF92FE9D)]),
+      LinearGradient(colors: [Color(0xFFFBAB7E), Color(0xFFF7CE68)]),
+      LinearGradient(colors: [Color(0xFF5D4157), Color(0xFFA8CABA)]),
+      LinearGradient(colors: [Color(0xFF2193B0), Color(0xFF6DD5ED)]),
+    ],
+    'Visa Gold': [
+      LinearGradient(colors: [Color(0xFFFFD200), Color(0xFFFFA700)]),
+      LinearGradient(colors: [Color(0xFFF7971E), Color(0xFFFFD200)]),
+      LinearGradient(colors: [Color(0xFFFFE259), Color(0xFFFFA751)]),
+      LinearGradient(colors: [Color(0xFFFCEABB), Color(0xFFF8B500)]),
+      LinearGradient(colors: [Color(0xFFFFD89B), Color(0xFF19547B)]),
+    ],
+    'Visa Business': [
+      LinearGradient(colors: [Color(0xFF283E51), Color(0xFF485563)]),
+      LinearGradient(colors: [Color(0xFF2C3E50), Color(0xFF4CA1AF)]),
+      LinearGradient(colors: [Color(0xFF4B79A1), Color(0xFF283E51)]),
+      LinearGradient(colors: [Color(0xFF536976), Color(0xFF292E49)]),
+      LinearGradient(colors: [Color(0xFF606C88), Color(0xFF3F4C6B)]),
+    ],
+    'Visa Premium+': [
+      LinearGradient(colors: [Color(0xFF000000), Color(0xFF434343)]),
+      LinearGradient(colors: [Color(0xFF3C3B3F), Color(0xFF605C3C)]),
+      LinearGradient(colors: [Color(0xFF141E30), Color(0xFF243B55)]),
+      LinearGradient(colors: [Color(0xFF232526), Color(0xFF414345)]),
+      LinearGradient(colors: [Color(0xFF1F1C2C), Color(0xFF928DAB)]),
+    ],
+    'Visa International': [
+      LinearGradient(colors: [Color(0xFF43C6AC), Color(0xFF191654)]),
+      LinearGradient(colors: [Color(0xFF1A2980), Color(0xFF26D0CE)]),
+      LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
+      LinearGradient(colors: [Color(0xFF2BC0E4), Color(0xFFEAECC6)]),
+      LinearGradient(colors: [Color(0xFF4776E6), Color(0xFF8E54E9)]),
+    ],
+  };
+
+  final Map<String, List<Gradient>> virtualCardColors = {
+    'Virtual Standard': [
+      LinearGradient(colors: [Color(0xFF7F7FD5), Color(0xFF86A8E7)]),
+      LinearGradient(colors: [Color(0xFF2193b0), Color(0xFF6dd5ed)]),
+      LinearGradient(colors: [Color(0xFF00b09b), Color(0xFF96c93d)]),
+      LinearGradient(colors: [Color(0xFFf857a6), Color(0xFFFF5858)]),
+      LinearGradient(colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)]),
+    ],
+    'Virtual Plus': [
+      LinearGradient(colors: [Color(0xFFFF5F6D), Color(0xFFFFC371)]),
+      LinearGradient(colors: [Color(0xFFe96443), Color(0xFF904e95)]),
+      LinearGradient(colors: [Color(0xFF16A085), Color(0xFF2980B9)]),
+      LinearGradient(colors: [Color(0xFF614385), Color(0xFF516395)]),
+      LinearGradient(colors: [Color(0xFFff6e7f), Color(0xFFbfe9ff)]),
+    ],
+    'Virtual Premium': [
+      LinearGradient(colors: [Color(0xFF43C6AC), Color(0xFFF8FFAE)]),
+      LinearGradient(colors: [Color(0xFF614385), Color(0xFF516395)]),
+      LinearGradient(colors: [Color(0xFF5A3F37), Color(0xFF2C7744)]),
+      LinearGradient(colors: [Color(0xFF1D4350), Color(0xFFA43931)]),
+      LinearGradient(colors: [Color(0xFF000428), Color(0xFF004e92)]),
+    ],
+    'Virtual Business': [
+      LinearGradient(colors: [Color(0xFF283E51), Color(0xFF485563)]),
+      LinearGradient(colors: [Color(0xFF2C3E50), Color(0xFF4CA1AF)]),
+      LinearGradient(colors: [Color(0xFF373B44), Color(0xFF4286f4)]),
+      LinearGradient(colors: [Color(0xFF536976), Color(0xFF292E49)]),
+      LinearGradient(colors: [Color(0xFF1D2B64), Color(0xFFF8CDDA)]),
+    ],
+  };
+
 
   @override
   void dispose() {
@@ -743,7 +820,26 @@ class _AddNewCardState extends State<AddNewCard> {
                       onPressed: (selectedCardColor == null || selectedCardType == null)
                           ? null
                           : () {
-                        // TODO: next step
+                        // ✅ Navigate to ChooseCardColorScreen
+                        final gradients = selectedCardType!.label == 'Physical Card'
+                            ? physicalCardColors[selectedCardColor!.label]!
+                            : virtualCardColors[selectedCardColor!.label]!;
+
+                        context.push(
+                          '/choose_color',
+                          extra: {
+                            'gradients': gradients,
+                            'cardType': selectedCardType!.label,
+                            'packName': selectedCardColor!.label,
+                          },
+                        );
+
+                        showCupertinoGlassToast(
+                          context,
+                          'Awesome! Now choose your card color 🎨.',
+                          isSuccess: true,
+                          position: ToastPosition.top,
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
