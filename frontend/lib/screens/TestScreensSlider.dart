@@ -43,10 +43,10 @@ class TestScreensSlider extends StatelessWidget {
       const HomeScreen(),
       const NotificationsScreen(),
       const TransactionsScreen(),
-      const MyCardsScreen(),
+
       const AddNewCard(),
       const ChooseCardColorScreen(),
-      const SuccessScreen(),
+
       const PhysicalCardDetailsScreen(),
       const VirtualCardDetailsScreen(),
       const TravelPlanScreen(),
