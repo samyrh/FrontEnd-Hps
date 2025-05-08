@@ -8,9 +8,9 @@ import '../widgets/Home_Header.dart';
 import '../widgets/Card_Scroller.dart';
 import '../widgets/Account_Summary.dart';
 import '../widgets/Navbar.dart';
-import '../widgets/UltraSwitch.dart'; // Only imported here
+import '../widgets/UltraSwitch.dart';
 import '../widgets/Toast.dart';
-import 'PhysicalCardDetailsScreen.dart'; // if needed for reason
+import 'package:go_router/go_router.dart';
 
 
 // hello
@@ -93,12 +93,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     scale: bounceScale.clamp(0.96, 1.02),
                     duration: const Duration(milliseconds: 100),
                     curve: Curves.easeOut,
-                    child: CardScroller(
+                    child:CardScroller(
                       onCardChanged: (label) {
                         setState(() {
                           selectedCardLabel = label;
                           _initCardSettings(label);
                         });
+                      },
+                      onCardTap: (label) {
+                        // 🔎 Check if it's a physical card (customize this check based on your labels)
+                        final isPhysicalCard = label.toLowerCase().contains('visa') || label.toLowerCase().contains('physical');
+
+                        if (isPhysicalCard) {
+                          // 1️⃣ Navigate to the physical card details screen
+                          context.push('/physical_card_details');
+
+                          // 2️⃣ Show a toast
+                          showCupertinoGlassToast(
+                            context,
+                            'You can now manage your Physical Card here.',
+                            isSuccess: true,
+                            position: ToastPosition.top,
+                          );
+                        }
                       },
                     ),
                   ),
@@ -170,12 +187,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         GestureDetector(
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const PhysicalCardDetailsScreen(),
-                              ),
-                            );
+                            // ✅ Navigate using GoRouter & pass a flag
+                            context.push('/physical_card_details', extra: {'autoScroll': true});
+
+                            // ✅ Show a toast after navigating
+                            Future.delayed(const Duration(milliseconds: 300), () {
+                              showCupertinoGlassToast(
+                                context,
+                                'Manage card & security options here.',
+                                isSuccess: true,
+                                position: ToastPosition.top,
+                              );
+                            });
                           },
                           child: Container(
                             height: 60,
@@ -217,17 +240,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 28),
 
                   // 🚨 Alerts Section
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: AlertsWidget(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: AlertsWidget(
+                      onViewAll: () {
+                        context.push('/notifications'); // ✅ navigate to Notifications screen
+                      },
+                    ),
                   ),
 
                   const SizedBox(height: 28),
 
                   // 📈 Transactions Section
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: TransactionsWidget(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: TransactionsWidget(
+                      onViewAll: () {
+                        context.push('/transactions'); // 👈 Go to Transactions screen
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -239,15 +270,17 @@ class _HomeScreenState extends State<HomeScreen> {
             top: topPadding + 30,
             left: 20,
             right: 20,
-            child: const HomeHeader(),
+            child: HomeHeader(
+              onNotificationsPressed: () {
+                context.push('/notifications'); // ✅ Push to your NotificationsScreen
+              },
+            ),
           ),
         ],
       ),
 
-      bottomNavigationBar: IOSBottomNavbar(
-        currentIndex: currentIndex,
-        onTap: (index) => setState(() => currentIndex = index),
-      ),
+      bottomNavigationBar: const IOSBottomNavbar(),
+
     );
   }
 
