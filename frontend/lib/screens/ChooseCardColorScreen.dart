@@ -1,5 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import 'SuccessScreen.dart';
 
 class ChooseCardColorScreen extends StatefulWidget {
   const ChooseCardColorScreen({Key? key}) : super(key: key);
@@ -14,24 +17,11 @@ class _ChooseCardColorScreenState extends State<ChooseCardColorScreen>
   late Animation<double> _animation;
   bool isFront = true;
 
-  Gradient selectedGradient = const LinearGradient(
-    colors: [Color(0xFF7F7FD5), Color(0xFF86A8E7)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  late List<Gradient> gradients;
+  late String cardType;
+  late String packName;
 
-  final List<Gradient> gradients = [
-    const LinearGradient(colors: [Color(0xFF7F7FD5), Color(0xFF86A8E7)]),
-    const LinearGradient(colors: [Color(0xFF2193b0), Color(0xFF6dd5ed)]),
-    const LinearGradient(colors: [Color(0xFF00b09b), Color(0xFF96c93d)]),
-    const LinearGradient(colors: [Color(0xFFf857a6), Color(0xFFFF5858)]),
-    const LinearGradient(colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)]),
-    const LinearGradient(colors: [Color(0xFFFF5F6D), Color(0xFFFFC371)]),
-    const LinearGradient(colors: [Color(0xFFe96443), Color(0xFF904e95)]),
-    const LinearGradient(colors: [Color(0xFF16A085), Color(0xFF2980B9)]),
-    const LinearGradient(colors: [Color(0xFF614385), Color(0xFF516395)]),
-    const LinearGradient(colors: [Color(0xFFff6e7f), Color(0xFFbfe9ff)]),
-  ];
+  Gradient? selectedGradient;
 
   @override
   void initState() {
@@ -45,6 +35,19 @@ class _ChooseCardColorScreenState extends State<ChooseCardColorScreen>
     );
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 🔥 Receive data from GoRouter
+    final extras = GoRouterState.of(context).extra as Map<String, dynamic>;
+    gradients = extras['gradients'] as List<Gradient>;
+    cardType = extras['cardType'] as String;
+    packName = extras['packName'] as String;
+
+    // ✅ Set initial selectedGradient
+    selectedGradient = gradients.first;
+  }
+
   void _flipCard() {
     if (isFront) {
       _controller.forward();
@@ -56,7 +59,7 @@ class _ChooseCardColorScreenState extends State<ChooseCardColorScreen>
 
   Widget _animatedCardContainer({required Widget child}) {
     return TweenAnimationBuilder<Gradient>(
-      tween: GradientTween(begin: selectedGradient, end: selectedGradient),
+      tween: GradientTween(begin: selectedGradient!, end: selectedGradient!),
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOutCubic,
       builder: (context, gradient, _) {
@@ -91,10 +94,10 @@ class _ChooseCardColorScreenState extends State<ChooseCardColorScreen>
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Preview Card',
+              const Text('Preview Card',
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -102,17 +105,16 @@ class _ChooseCardColorScreenState extends State<ChooseCardColorScreen>
               Icon(Icons.credit_card, color: Colors.white, size: 24),
             ],
           ),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('**** **** ****',
-                  style: TextStyle(
+              Text(packName,
+                  style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.white54,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 2)),
-              SizedBox(height: 4),
-              Text('****',
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(height: 4),
+              const Text('**** **** ****',
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -303,13 +305,13 @@ class _ChooseCardColorScreenState extends State<ChooseCardColorScreen>
                 ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
-                'Once you select your preferred card color, a request will be sent to your bank administrator for approval. '
-                    'Your card will become available shortly after confirmation. '
-                    'You can flip the card to preview both sides before finalizing your choice.',
-                style: TextStyle(
+                'You have selected the $packName ($cardType). Choose your preferred color below. '
+                    'A request will be sent to your bank administrator for approval. '
+                    'You can flip the card to preview both sides.',
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w400,
                   color: Color(0xFF5E5E6B),
@@ -319,7 +321,7 @@ class _ChooseCardColorScreenState extends State<ChooseCardColorScreen>
                 textAlign: TextAlign.justify,
               ),
             ),
-            const SizedBox(height: 20), // 👈 Adds spacing between text and card
+            const SizedBox(height: 20),
             Expanded(
               child: Column(
                 children: [
@@ -370,9 +372,19 @@ class _ChooseCardColorScreenState extends State<ChooseCardColorScreen>
                     ),
                     elevation: 6,
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SuccessScreen(
+                          cardType: cardType,
+                          packName: packName,
+                        ),
+                      ),
+                    );
+                  },
                   child: const Text(
-                    'Continue',
+                    'Confirm',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
