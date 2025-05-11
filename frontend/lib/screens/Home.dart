@@ -341,6 +341,29 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _initCardSettings("Visa Youth");
   }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
+
+    if (extra?['showWelcome'] == true) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        final hour = DateTime.now().hour;
+        final greeting = hour < 12
+            ? 'Good morning ☀️'
+            : hour < 18
+            ? 'Good afternoon 🌤️'
+            : 'Good evening 🌙';
+
+        showCupertinoGlassToast(
+          context,
+          "$greeting\nWelcome back!",
+          isSuccess: true,
+          position: ToastPosition.top,
+        );
+      });
+    }
+  }
 
   void _initCardSettings(String label) {
     contactlessMap.putIfAbsent(label, () => true);
