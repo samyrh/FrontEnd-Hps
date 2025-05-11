@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
 
 class ContactUsScreen extends StatelessWidget {
   const ContactUsScreen({Key? key}) : super(key: key);
@@ -60,13 +62,18 @@ class ContactUsScreen extends StatelessWidget {
               children: [
                 // AppBar
                 Row(
-                  children: const [
-                    Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                    Spacer(),
-                    Text('Contact Us',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-                    Spacer(),
-                    SizedBox(width: 36),
+                  children: [
+                    GestureDetector(
+                      onTap: () => context.go('/menu'),
+                      child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                    ),
+                    const Spacer(),
+                    const Text(
+                      'Contact Us',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    const SizedBox(width: 36),
                   ],
                 ),
                 const SizedBox(height: 24),

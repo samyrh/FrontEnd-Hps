@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class ComplainScreen extends StatefulWidget {
   const ComplainScreen({super.key});
@@ -44,7 +45,7 @@ class _ComplainScreenState extends State<ComplainScreen> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                      onTap: () => context.go('/menu'),
                       child: const Icon(Icons.arrow_back, size: 24, color: Colors.black87),
 
                     ),

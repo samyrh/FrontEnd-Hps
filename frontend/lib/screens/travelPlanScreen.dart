@@ -6,7 +6,7 @@ import '../widgets/AddTravelPlan/DialogRow.dart';
 import '../widgets/AddTravelPlan/buildScrollableCountryRow.dart';
 import '../widgets/Countries_Dropdown.dart';
 import '../widgets/CustomDropdown.dart';
-import '../widgets/Navbar.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/Toast.dart';
 
 class PhysicalCardSpecsPack {
@@ -393,7 +393,7 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                        onTap: () => context.go('/menu'),
                         child: const Icon(Icons.arrow_back, size: 24),
                       ),
                     ),

@@ -11,16 +11,23 @@ import 'package:sami/screens/NewCard.dart';
 import 'package:sami/screens/PhysicalCardDetailsScreen.dart';
 import 'package:sami/screens/VirtualCardDetailsScreen.dart';
 import '../screens/AiScreen1.dart';
+import '../screens/CardPacksScreen.dart';
+import '../screens/ComplainScreen.dart';
+import '../screens/ContactUs.dart';
 import '../screens/Landing4.dart';
 import '../screens/Menu.dart';
 import '../screens/NotificationsScreen.dart';
+import '../screens/ProfileScreen.dart';
 import '../screens/SecurityCodeSetUp.dart';
 import '../screens/SecurityCodeVerificationScreen.dart';
+import '../screens/Settings.dart';
+import '../screens/TravelPlanScreen.dart';
 import '../screens/cards_screen.dart';
 import '../screens/sign_in.dart';
 import '../screens/transactions_screen.dart';
 import '../widgets/ResetPassword/Identify_User.dart';
 import '../widgets/ResetPassword/Reset_PasswordScreen.dart';
+
 
 /// ✅ Reusable slide transition page helper
 CustomTransitionPage buildSlideTransitionPage({
@@ -182,6 +189,43 @@ final GoRouter appRouter = GoRouter(
       pageBuilder: (context, state) =>
           buildSlideTransitionPage(child: const SecurityCodeSetupScreen(), state: state),
     ),
+    GoRoute(
+      path: '/profile',
+      name: 'profile',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const ProfileScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/travel_plan',
+      name: 'travel_plan',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const TravelPlanScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/contact_us',
+      name: 'contact_us',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const ContactUsScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/complain',
+      name: 'complain',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const ComplainScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/settings',
+      name: 'settings',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const SettingsScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/card_packs',
+      name: 'card_packs',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const CardPacksScreen(), state: state),
+    ),
+
 
   ],
   errorBuilder: (context, state) => const Scaffold(

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -83,7 +84,10 @@ class ProfileScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                    GestureDetector(
+                      onTap: () => context.go('/menu'),
+                      child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                    ),
                     const Text('Profile', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
                     GestureDetector(
                       onTap: () {
@@ -105,6 +109,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                   ],
+
                 ),
 
                 const SizedBox(height: 5),

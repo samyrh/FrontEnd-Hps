@@ -126,7 +126,7 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                        onTap: () => context.go('/menu'),
                         child: Container(
                           width: 42,
                           height: 42,

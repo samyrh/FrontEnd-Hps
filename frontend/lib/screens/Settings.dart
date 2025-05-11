@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'notificationparametre.dart';
 import 'PolicyScreen.dart';
+import 'package:go_router/go_router.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -102,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => context.go('/menu'),
                     ),
                     const Text(
                       'Settings',

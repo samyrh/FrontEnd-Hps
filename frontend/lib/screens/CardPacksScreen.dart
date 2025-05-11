@@ -1,5 +1,5 @@
 import 'dart:ui';
-
+import 'package:go_router/go_router.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -395,7 +395,7 @@ class _CardPacksScreenState extends State<CardPacksScreen> {
                       borderRadius: BorderRadius.circular(50),
                       splashColor: Colors.black12,
                       highlightColor: Colors.black12,
-                      onTap: () => Navigator.pop(context),
+                      onTap: () => context.go('/menu'),
                       child: const Padding(
                         padding: EdgeInsets.all(8.0),
                         child: Icon(
