@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isEcommerceEnabled = true;
   bool isTpeEnabled = true;
   String selectedCardLabel = "Visa Youth";
-
+  bool _hasShownWelcomeToast = false;
   Map<String, bool> contactlessMap = {};
   Map<String, bool> ecommerceMap = {};
   Map<String, bool> tpeMap = {};
@@ -344,24 +344,30 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
 
-    if (extra?['showWelcome'] == true) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        final hour = DateTime.now().hour;
-        final greeting = hour < 12
-            ? 'Good morning ☀️'
-            : hour < 18
-            ? 'Good afternoon 🌤️'
-            : 'Good evening 🌙';
+    // Only show toast once
+    if (!_hasShownWelcomeToast) {
+      final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
 
-        showCupertinoGlassToast(
-          context,
-          "$greeting\nWelcome back!",
-          isSuccess: true,
-          position: ToastPosition.top,
-        );
-      });
+      if (extra?['showWelcome'] == true) {
+        _hasShownWelcomeToast = true;
+
+        Future.delayed(const Duration(milliseconds: 500), () {
+          final hour = DateTime.now().hour;
+          final greeting = hour < 12
+              ? 'Good morning ☀️'
+              : hour < 18
+              ? 'Good afternoon 🌤️'
+              : 'Good evening 🌙';
+
+          showCupertinoGlassToast(
+            context,
+            "$greeting\nWelcome back!",
+            isSuccess: true,
+            position: ToastPosition.top,
+          );
+        });
+      }
     }
   }
 
