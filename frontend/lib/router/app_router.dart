@@ -14,8 +14,13 @@ import '../screens/AiScreen1.dart';
 import '../screens/Landing4.dart';
 import '../screens/Menu.dart';
 import '../screens/NotificationsScreen.dart';
+import '../screens/SecurityCodeSetUp.dart';
+import '../screens/SecurityCodeVerificationScreen.dart';
 import '../screens/cards_screen.dart';
+import '../screens/sign_in.dart';
 import '../screens/transactions_screen.dart';
+import '../widgets/ResetPassword/Identify_User.dart';
+import '../widgets/ResetPassword/Reset_PasswordScreen.dart';
 
 /// ✅ Reusable slide transition page helper
 CustomTransitionPage buildSlideTransitionPage({
@@ -139,6 +144,43 @@ final GoRouter appRouter = GoRouter(
       name: 'choose color',
       pageBuilder: (context, state) =>
           buildSlideTransitionPage(child: const ChooseCardColorScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/sign_in',
+      name: 'sign in',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const SignInScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/identify_user',
+      name: 'identify user',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const IdentifyUserScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/reset_password',
+      name: 'reset password',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const ResetPasswordScreen(), state: state),
+    ),
+
+    GoRoute(
+      path: '/verify_code',
+      name: 'verify code',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const SecurityCodeVerificationScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/sign_in_with_toast',
+      name: 'sign in with toast',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const SignInScreen(showRedirectToast: true), state: state),
+    ),
+    GoRoute(
+      path: '/security_code_setup',
+      name: 'security code setup',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const SecurityCodeSetupScreen(), state: state),
     ),
 
   ],
