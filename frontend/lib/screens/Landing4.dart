@@ -81,25 +81,24 @@ class Landing4 extends StatelessWidget {
                     width: double.infinity,
                     child: TextButton(
                       onPressed: () {
-                        // 1️⃣ Navigate to home
-                        context.go('/home');
+                        // Navigate to SignInScreen
+                        context.go('/sign_in');
 
-                        // 2️⃣ Get current time & user details
+                        // Show a dynamic greeting toast
                         final now = DateTime.now();
                         final hour = now.hour;
                         final name = 'Nada'; // Replace with dynamic username if needed
 
-                        // 3️⃣ Build compact message
                         String message;
                         if (hour < 12) {
-                          message = 'Good morning, $name! Let’s make today productive. (${DateFormat('MMMM d, y').format(now)})';
+                          message = 'Good morning, $name! Please sign in to continue.';
                         } else if (hour < 18) {
-                          message = 'Good afternoon, $name! Keep up the momentum. (${DateFormat('MMMM d, y').format(now)})';
+                          message = 'Good afternoon, $name! Please sign in to continue.';
                         } else {
-                          message = 'Good evening, $name! Great job today—time to relax. (${DateFormat('MMMM d, y').format(now)})';
+                          message = 'Good evening, $name! Please sign in to continue.';
                         }
 
-                        // 4️⃣ Show toast
+                        // Show your custom CupertinoGlassToast
                         showCupertinoGlassToast(
                           context,
                           message,
