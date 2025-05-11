@@ -1,5 +1,5 @@
 import 'dart:ui';
-
+import 'package:go_router/go_router.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -165,7 +165,19 @@ class _SecurityCodeSetupScreenState extends State<SecurityCodeSetupScreen> {
                       ),
                       const SizedBox(height: 16),
                       GestureDetector(
-                        onTap: () => Navigator.of(context).pop(),
+                        onTap: () {
+                          // Dismiss the dialog using root navigator
+                          Navigator.of(context, rootNavigator: true).pop();
+
+                          // Wait until next frame to safely navigate
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              GoRouter.of(context).go('/home', extra: {'showWelcome': true});
+                            }
+                          });
+                        },
+
+
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                           margin: const EdgeInsets.only(top: 8),
