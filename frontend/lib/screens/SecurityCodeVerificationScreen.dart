@@ -1,7 +1,7 @@
 import 'dart:ui';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 class SecurityCodeVerificationScreen extends StatefulWidget {
   const SecurityCodeVerificationScreen({super.key});
@@ -123,7 +123,14 @@ class _SecurityCodeVerificationScreenState extends State<SecurityCodeVerificatio
                           ),
                           const SizedBox(height: 16),
                           GestureDetector(
-                            onTap: () => Navigator.of(context).pop(),
+                            onTap: () {
+                              Navigator.of(context).pop();
+
+                              // Schedule the navigation after the dialog is closed
+                              Future.microtask(() {
+                                context.go('/identify_user');
+                              });
+                            },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                               margin: const EdgeInsets.only(top: 8),
