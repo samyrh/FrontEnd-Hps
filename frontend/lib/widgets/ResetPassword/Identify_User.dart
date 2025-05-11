@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../screens/sign_in.dart';
+import 'package:go_router/go_router.dart';
 import '../OtpVerificationDialog.dart';
 import '../Toast.dart';
 import 'Reset_PasswordScreen.dart';
@@ -102,10 +102,7 @@ class _IdentifyUserScreenState extends State<IdentifyUserScreen> {
           isSuccess: false,
         );
         Future.delayed(const Duration(milliseconds: 1800), () {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const SignInScreen()),
-                (route) => false,
-          );
+          context.go('/sign_in');
         });
       }
     }
@@ -134,7 +131,12 @@ class _IdentifyUserScreenState extends State<IdentifyUserScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: const BackButton(color: Colors.black),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () {
+              context.go('/sign_in'); // ✅ GoRouter redirect to sign in
+            },
+          ),
           title: const Text(
             'Reset Password',
             style: TextStyle(

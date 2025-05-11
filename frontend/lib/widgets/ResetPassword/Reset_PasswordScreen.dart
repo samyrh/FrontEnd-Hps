@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../screens/sign_in.dart';
+import 'package:go_router/go_router.dart';
 import '../Toast.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
@@ -81,37 +81,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     // Step 2: Delay for toast visibility, then transition
     Future.delayed(const Duration(milliseconds: 1650), () {
-      Navigator.of(context).pushAndRemoveUntil(
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 480),
-          pageBuilder: (_, animation, __) => FadeTransition(
-            opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-            child: const SignInScreen(),
-          ),
-          transitionsBuilder: (_, animation, __, child) {
-            final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic);
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.0, 0.08), // Subtle upward slide
-                end: Offset.zero,
-              ).animate(curved),
-              child: FadeTransition(opacity: curved, child: child),
-            );
-          },
-        ),
-            (route) => false,
-      );
-
-      // Step 3: After arriving, show final toast in the SignInScreen
-      Future.delayed(const Duration(milliseconds: 500), () {
-        showCupertinoGlassToast(
-          context,
-          'Your new password is active. You can now sign in.',
-          isSuccess: true,
-          position: ToastPosition.top,
-        );
-      });
+      context.go('/sign_in_with_toast');
     });
+
   }
 
   @override
