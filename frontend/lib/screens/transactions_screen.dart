@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../widgets/filter_pill.dart';
 import '../widgets/transaction_card.dart';
 
@@ -12,7 +11,8 @@ class TransactionsScreen extends StatefulWidget {
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
   String selectedFilter = 'All';
-  int currentIndex = 0;
+  String searchQuery = '';
+  final TextEditingController searchController = TextEditingController();
 
   final List<Map<String, dynamic>> transactions = [
     {
@@ -51,12 +51,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   final filters = ['All', 'Daily', 'Monthly', 'Online'];
 
-
   @override
   Widget build(BuildContext context) {
-    final filteredList = selectedFilter == 'All'
-        ? transactions
-        : transactions.where((tx) => tx['type'] == selectedFilter).toList();
+    final filteredList = transactions.where((tx) {
+      final matchesFilter = selectedFilter == 'All' || tx['type'] == selectedFilter;
+      final matchesSearch = tx['title'].toLowerCase().contains(searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    }).toList();
 
     final totalAmount = filteredList.fold<double>(
         0, (sum, tx) => sum + (tx['amount'] as double));
@@ -67,9 +68,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFEAF7F5), // pastel teal
-            Color(0xFFFDF3F6), // soft blush pink
-            Color(0xFFF2EDF9), // light lavender
+            Color(0xFFEAF7F5),
+            Color(0xFFFDF3F6),
+            Color(0xFFF2EDF9),
           ],
         ),
       ),
@@ -122,9 +123,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 ),
               ),
 
-              // iOS-style filter pills
+              // Filter pills
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Center(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -141,6 +142,30 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         ),
                       );
                     }).toList(),
+                  ),
+                ),
+              ),
+
+              // iOS-style Search Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    controller: searchController,
+                    onChanged: (value) => setState(() => searchQuery = value),
+                    style: const TextStyle(fontSize: 16),
+                    cursorColor: Colors.black,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      hintText: 'Search transactions',
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      border: InputBorder.none,
+                    ),
                   ),
                 ),
               ),
@@ -237,5 +262,4 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
     );
   }
-
 }
