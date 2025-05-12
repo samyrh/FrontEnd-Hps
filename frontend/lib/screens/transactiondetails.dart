@@ -49,7 +49,7 @@ class TransactionDetailScreen extends StatelessWidget {
                   const Spacer(),
                   const Opacity(
                     opacity: 0,
-                    child: Icon(Icons.chevron_left), // spacer balance
+                    child: Icon(Icons.chevron_left),
                   ),
                 ],
               ),
@@ -117,7 +117,6 @@ class TransactionDetailScreen extends StatelessWidget {
 
                     const SizedBox(height: 20),
                     const Divider(height: 0, thickness: 1),
-
                     const SizedBox(height: 20),
 
                     // Additional Info
@@ -129,6 +128,7 @@ class TransactionDetailScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
@@ -137,6 +137,16 @@ class TransactionDetailScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        Text('Card Number', style: TextStyle(color: Colors.grey)),
+                        Text('**** **** **** 3412', style: TextStyle(fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
@@ -145,6 +155,7 @@ class TransactionDetailScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
