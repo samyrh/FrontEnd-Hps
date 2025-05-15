@@ -31,14 +31,9 @@ public class Event {
 
     private boolean isRead;
 
-    @ManyToOne
-    @JoinColumn(name = "sender_agent_id")
-    private Agent senderAgent;
 
-    @ManyToOne
-    @JoinColumn(name = "recipient_cardholder_id")
-    private Cardholder recipient;
-
-    @ManyToOne
-    private Card card;
+    // Only store IDs — not entity objects from other services
+    private Long senderAgentId;
+    private Long recipientCardholderId;
+    private Long cardId;
 }
