@@ -38,10 +38,5 @@ public class Cardholder {
 
     @Column(length = 6)
     private String securityCode;
-
-    @OneToMany(mappedBy = "cardholder", cascade = CascadeType.ALL)
-    private List<Card> cards;
-
-    @OneToMany(mappedBy = "recipient", cascade = CascadeType.ALL)
-    private List<Event> events;
+    
 }

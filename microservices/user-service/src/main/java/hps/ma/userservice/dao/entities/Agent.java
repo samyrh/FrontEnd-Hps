@@ -26,12 +26,4 @@ public class Agent {
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 
-    @OneToMany(mappedBy = "senderAgent", cascade = CascadeType.ALL)
-    private List<Event> events;
-
-    @OneToMany(mappedBy = "approver", cascade = CascadeType.ALL)
-    private List<TravelPlan> approvedPlans;
-
-    @OneToMany(mappedBy = "manager", cascade = CascadeType.ALL)
-    private List<Card> managedCards;
 }
