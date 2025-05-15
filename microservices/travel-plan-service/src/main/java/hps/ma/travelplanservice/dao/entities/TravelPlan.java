@@ -31,9 +31,10 @@ public class TravelPlan {
     private double travelLimit;
     private int maxDays;
 
-    @ManyToOne
-    private Card card;
 
-    @ManyToOne
-    private Agent approver;
+    @Column(name = "card_id", nullable = false)
+    private Long cardId;  // Belongs to card-service
+
+    @Column(name = "approver_id")
+    private Long approverId;  // Belongs to user-service (Agent)
 }
