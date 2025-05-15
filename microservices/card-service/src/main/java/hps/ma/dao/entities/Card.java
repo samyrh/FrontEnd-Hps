@@ -1,6 +1,5 @@
 package hps.ma.dao.entities;
 
-
 import hps.ma.dao.enums.BlockReason;
 import hps.ma.dao.enums.CardStatus;
 import hps.ma.dao.enums.CardType;
@@ -12,7 +11,8 @@ import java.util.Date;
 @Entity
 @Getter
 @Setter
-@AllArgsConstructor@NoArgsConstructor
+@AllArgsConstructor
+@NoArgsConstructor
 @Builder
 public class Card {
 
@@ -53,18 +53,13 @@ public class Card {
 
     private boolean isCanceled;
 
-    @ManyToOne
-    private Cardholder cardholder;
+    @Column(name = "cardholder_id", nullable = false)
+    private Long cardholderId;
 
-    @ManyToOne
-    private Agent manager;
+    @Column(name = "manager_id")
+    private Long managerId;
 
     @ManyToOne
     private CardPack cardPack;
 
-    @OneToMany(mappedBy = "card", cascade = CascadeType.ALL)
-    private List<Transaction> transactions;
-
-    @OneToMany(mappedBy = "card", cascade = CascadeType.ALL)
-    private List<Event> events;
 }
