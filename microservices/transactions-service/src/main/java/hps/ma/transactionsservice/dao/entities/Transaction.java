@@ -36,6 +36,6 @@ public class Transaction {
 
     private String type;
 
-    @ManyToOne
-    private Card card;
+    @Column(name = "card_id", nullable = false)
+    private Long cardId;
 }
