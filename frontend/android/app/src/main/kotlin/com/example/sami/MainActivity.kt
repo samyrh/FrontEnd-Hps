@@ -1,5 +1,5 @@
-package com.example.sami
+package com.example.sami  // ✅ Update this if your package name is different
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+class   MainActivity: FlutterFragmentActivity()  // ✅ FIXED
