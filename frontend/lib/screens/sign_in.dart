@@ -951,7 +951,14 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
 
                       // ✅ Use post-frame callback to avoid Impeller crash
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        context.go('/security_code_setup');
+                        if (isFirst) {
+                          context.go('/security_code_setup');
+                        } else {
+                          context.go('/verify_code', extra: {
+                            'isFirstLogin': false,
+                            'fromLogin': true, // ✅ key flag for redirection logic
+                          });
+                        }
                       });
                     } else if (response != null) {
                       setState(() {
@@ -1094,8 +1101,16 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
             });
 
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.go('/verify_code'); // ✅ redirected here
+              if (_isFirstLogin) {
+                context.go('/security_code_setup');
+              } else {
+                context.go('/verify_code', extra: {
+                  'isFirstLogin': false,
+                  'fromLogin': true,
+                });
+              }
             });
+
           }
 
           else {
