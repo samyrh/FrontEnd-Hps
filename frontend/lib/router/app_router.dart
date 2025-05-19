@@ -173,10 +173,21 @@ final GoRouter appRouter = GoRouter(
 
     GoRoute(
       path: '/verify_code',
-      name: 'verify code',
-      pageBuilder: (context, state) =>
-          buildSlideTransitionPage(child: const SecurityCodeVerificationScreen(), state: state),
+      pageBuilder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        final isFirstLogin = extra['isFirstLogin'] as bool? ?? false;
+        final fromLogin = extra['fromLogin'] as bool? ?? false;
+
+        return buildSlideTransitionPage(
+          state: state,
+          child: SecurityCodeVerificationScreen(
+            isFirstLogin: isFirstLogin,
+            fromLogin: fromLogin,
+          ),
+        );
+      },
     ),
+
     GoRoute(
       path: '/sign_in_with_toast',
       name: 'sign in with toast',
