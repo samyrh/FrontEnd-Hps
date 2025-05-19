@@ -4,11 +4,20 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 class SecurityCodeVerificationScreen extends StatefulWidget {
-  const SecurityCodeVerificationScreen({super.key});
+  final bool isFirstLogin;
+  final bool fromLogin; // ✅ New param
+
+  const SecurityCodeVerificationScreen({
+    super.key,
+    required this.isFirstLogin,
+    this.fromLogin = false, // default to false
+  });
 
   @override
   State<SecurityCodeVerificationScreen> createState() => _SecurityCodeVerificationScreenState();
 }
+
+
 
 class _SecurityCodeVerificationScreenState extends State<SecurityCodeVerificationScreen> {
   final int length = 6;
@@ -126,9 +135,13 @@ class _SecurityCodeVerificationScreenState extends State<SecurityCodeVerificatio
                             onTap: () {
                               Navigator.of(context).pop();
 
-                              // Schedule the navigation after the dialog is closed
+                              // ✅ Redirect to different route depending on source
                               Future.microtask(() {
-                                context.go('/identify_user');
+                                if (widget.fromLogin) {
+                                  context.go('/home'); // 🏠 Go home if from login
+                                } else {
+                                  context.go('/identify_user'); // 🔁 Stay in forgot/reset password flow
+                                }
                               });
                             },
                             child: Container(
