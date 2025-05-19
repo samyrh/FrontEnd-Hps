@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class EBankingMenuScreen extends StatelessWidget {
   const EBankingMenuScreen({super.key});
@@ -53,7 +54,29 @@ class EBankingMenuScreen extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
-                        onTap: () {},
+                        onTap: () async {
+                          final prefs = await SharedPreferences.getInstance();
+
+                          // 🧠 Get saved usernames before clearing
+                          final savedUsername = prefs.getString('remembered_username');
+                          final savedUserList = prefs.getStringList('past_usernames');
+
+                          // ❌ DO NOT use prefs.clear()
+                          await prefs.remove('jwt_token'); // Remove session only
+
+                          // ✅ Restore usernames if needed
+                          if (savedUsername != null && savedUsername.isNotEmpty) {
+                            await prefs.setString('remembered_username', savedUsername);
+                          }
+
+                          if (savedUserList != null && savedUserList.isNotEmpty) {
+                            await prefs.setStringList('past_usernames', savedUserList);
+                          }
+
+                          if (context.mounted) {
+                            context.go('/sign_in'); // 🔄 Redirect to login
+                          }
+                        },
                         child: Container(
                           width: 44,
                           height: 44,

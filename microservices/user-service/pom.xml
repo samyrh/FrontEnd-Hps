@@ -101,16 +101,20 @@
             <version>0.11.5</version>
         </dependency>
 
+        <!-- Runtime Implementation -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
             <version>0.11.5</version>
+            <scope>runtime</scope> <!-- ✅ REQUIRED -->
         </dependency>
 
+        <!-- Jackson serializer for JWT (also runtime) -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
             <version>0.11.5</version>
+            <scope>runtime</scope> <!-- ✅ REQUIRED -->
         </dependency>
 
         <!-- OAuth2 Resource Server (for JWT token validation) -->
@@ -123,6 +127,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sami/widgets/CustomDropdown.dart';
-import 'package:sami/widgets/Navbar.dart';
+
+import '../widgets/CustomDropdown.dart';
+
 
 class ChangeLanguage extends StatefulWidget {
   const ChangeLanguage({Key? key}) : super(key: key);

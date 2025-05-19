@@ -1,10 +1,16 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../dto/LoginUserDto.dart';
+import '../services/auth/auth_service.dart';
+import '../services/auth/biometric_service.dart';
 import '../widgets/Toast.dart';
 
 class AppColors {
@@ -26,8 +32,8 @@ class SignInScreen extends StatefulWidget {
 }
 
 
-class _SignInScreenState extends State<SignInScreen> {
-  final TextEditingController _usernameController = TextEditingController(text: "sami");
+class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMixin {
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isButtonEnabled = false;
@@ -40,6 +46,13 @@ class _SignInScreenState extends State<SignInScreen> {
   Duration _remainingTime = Duration.zero;
   late final Ticker _ticker;
   int _lockAttemptLevel = 0;
+  final AuthService _authService = AuthService();
+  List<String> _pastUsernames = [];
+  bool _isFirstLogin = true;
+  Timer? _loginCheckTimer;
+  final TextEditingController _newUsernameController = TextEditingController();
+  bool _showNewUsernameInput = false;
+
 
   void _showLanguageDialog() {
     showDialog(
@@ -108,6 +121,9 @@ class _SignInScreenState extends State<SignInScreen> {
     _ticker.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _loginCheckTimer?.cancel();
+    _newUsernameController.dispose();
+
     super.dispose();
   }
 
@@ -137,7 +153,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 _headerRow(),
                 const SizedBox(height: 40),
 
-                // ⬆️ Headings
+                // ⬆ Headings
                 Text(
                   'Secure Sign In',
                   style: GoogleFonts.inter(
@@ -157,19 +173,88 @@ class _SignInScreenState extends State<SignInScreen> {
 
                 const SizedBox(height: 36),
 
-                // 🔐 Username Field
-                _customTextField(
+                _pastUsernames.length <= 1
+                    ? _customTextField(
                   label: 'Username',
                   controller: _usernameController,
+                  hintText: 'Enter your username',
                   prefixIcon: Icons.person_outline,
                   isEnabled: !_isLocked,
+                )
+
+                    : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeInOut,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: !_isLocked ? Colors.black.withOpacity(0.85) : Colors.grey.shade400,
+                      ),
+                      child: const Text("Username"),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: _isLocked ? null : _showAccountModal,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOutCubic,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(!_isLocked ? 0.15 : 0.08),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: !_isLocked
+                                    ? AppColors.inputBorder.withOpacity(0.3)
+                                    : Colors.grey.withOpacity(0.3),
+                                width: 1.2,
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: Row(
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 4.0),
+                                  child: Icon(Icons.person_outline, size: 20, color: Colors.black54),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    child: Text(
+                                      _usernameController.text.isNotEmpty
+                                          ? _usernameController.text
+                                          : 'Choose Account',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: !_isLocked ? AppColors.text : Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: Colors.black54),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+
                 const SizedBox(height: 16),
 
                 // 🔒 Password Field
                 _customTextField(
                   label: 'Password',
                   controller: _passwordController,
+                  hintText: 'Enter your password',
                   isPassword: true,
                   prefixIcon: Icons.lock_outline,
                   suffixIcon: _isPasswordVisible
@@ -197,7 +282,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     ),
                   ),
 
-                // ⏱️ Countdown when locked
+                // ⏱ Countdown when locked
                 if (_isLocked)
                   Center(
                     child: Padding(
@@ -275,7 +360,365 @@ class _SignInScreenState extends State<SignInScreen> {
       ],
     );
   }
+  void _showAccountModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      transitionAnimationController: AnimationController(
+        duration: const Duration(milliseconds: 320),
+        vsync: this,
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, modalSetState) {
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                left: 16,
+                right: 16,
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E1E1E), Color(0xFF2C2C2C)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 25,
+                      offset: const Offset(0, -8),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Drag bar
+                    Container(
+                      width: 42,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
 
+                    // Subtitle
+                    Text(
+                      "Your saved usernames are securely stored\nfor faster login.\nManaged by HPS SmartBank.",
+                      style: GoogleFonts.inter(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w500,
+                        height: 1.6,
+                        color: Colors.white70,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Username list
+                    ..._pastUsernames.map((username) {
+                      final isSelected = _usernameController.text.trim() == username;
+
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeInOut,
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E2E2E),
+                          borderRadius: BorderRadius.circular(18),
+                          border: isSelected ? Border.all(color: Colors.white24, width: 1.4) : null,
+                          boxShadow: isSelected
+                              ? [
+                            BoxShadow(
+                              color: Colors.white.withOpacity(0.05),
+                              offset: const Offset(0, 2),
+                              blurRadius: 8,
+                            ),
+                          ]
+                              : [],
+                        ),
+                        transform: isSelected
+                            ? (Matrix4.identity()..scale(1.02))
+                            : Matrix4.identity(),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.account_circle_outlined, color: Colors.white60, size: 24),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () async {
+                                  await _checkIfFirstLogin(username);
+                                  setState(() {
+                                    _usernameController.text = username;
+                                    _validateInputs();
+                                  });
+                                  Navigator.pop(context);
+                                },
+                                child: Text(
+                                  username,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            (_pastUsernames.length == 1 && isSelected)
+                                ? GestureDetector(
+                              onTap: () async {
+                                final prefs = await SharedPreferences.getInstance();
+                                setState(() {
+                                  _pastUsernames.remove(username);
+                                  _usernameController.clear();
+                                  _validateInputs();
+                                });
+                                modalSetState(() {});
+                                await prefs.setStringList('past_usernames', _pastUsernames);
+
+                                Navigator.pop(context);
+                                showCupertinoGlassToast(
+                                  context,
+                                  'All usernames cleared',
+                                  isSuccess: true,
+                                  position: ToastPosition.top,
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.red.withOpacity(0.15),
+                                ),
+                                child: const Icon(Icons.close_rounded, size: 18, color: Colors.redAccent),
+                              ),
+                            )
+                                : isSelected
+                                ? Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.08),
+                              ),
+                              child: const Icon(
+                                Icons.check_rounded,
+                                size: 18,
+                                color: Colors.white70,
+                              ),
+                            )
+                                : GestureDetector(
+                              onTap: () async {
+                                final prefs = await SharedPreferences.getInstance();
+                                setState(() {
+                                  _pastUsernames.remove(username);
+                                  if (_usernameController.text == username) {
+                                    _usernameController.clear();
+                                    _validateInputs();
+                                  }
+                                });
+                                modalSetState(() {});
+                                await prefs.setStringList('past_usernames', _pastUsernames);
+
+                                if (_pastUsernames.isEmpty) {
+                                  modalSetState(() {
+                                    _showNewUsernameInput = false;
+                                  });
+
+                                  await prefs.remove('remembered_username'); // ✅ clear it here
+                                  Navigator.pop(context);
+
+                                  showCupertinoGlassToast(
+                                    context,
+                                    'All usernames cleared',
+                                    isSuccess: true,
+                                    position: ToastPosition.top,
+                                  );
+                                  return;
+                                }
+
+
+                                showCupertinoGlassToast(
+                                  context,
+                                  'Username "$username" removed',
+                                  isSuccess: true,
+                                  position: ToastPosition.top,
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.red.withOpacity(0.15),
+                                ),
+                                child: const Icon(Icons.close_rounded, size: 18, color: Colors.redAccent),
+                              ),
+                            )
+
+                          ],
+                        ),
+                      );
+                    }),
+
+
+                    const SizedBox(height: 18),
+
+                    // Add / Cancel Toggle
+                    GestureDetector(
+                      onTap: () {
+                        modalSetState(() {
+                          _showNewUsernameInput = !_showNewUsernameInput;
+                          _newUsernameController.clear();
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white30),
+                          color: Colors.white.withOpacity(0.05),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _showNewUsernameInput ? Icons.close : Icons.add_circle_outline,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _showNewUsernameInput ? 'Cancel' : 'Add a New Account',
+                              style: GoogleFonts.inter(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Animated input + button
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeOut,
+                      child: _showNewUsernameInput
+                          ? Padding(
+                        padding: const EdgeInsets.only(top: 18),
+                        child: Column(
+                          children: [
+                            // Unified input field
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.person_outline, size: 20, color: Colors.white60),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _newUsernameController,
+                                      style: const TextStyle(color: Colors.white),
+                                      cursorColor: Colors.white,
+                                      decoration: const InputDecoration(
+                                        hintText: 'Enter new username',
+                                        hintStyle: TextStyle(color: Colors.white54),
+                                        border: InputBorder.none,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Unified save button
+                            GestureDetector(
+                              onTap: () async {
+                                final newUsername = _newUsernameController.text.trim();
+                                if (newUsername.isNotEmpty) {
+                                  final prefs = await SharedPreferences.getInstance();
+                                  if (!_pastUsernames.contains(newUsername)) {
+                                    _pastUsernames.add(newUsername);
+                                    await prefs.setStringList('past_usernames', _pastUsernames);
+                                  }
+
+                                  modalSetState(() {
+                                    _showNewUsernameInput = false;
+                                    _newUsernameController.clear();
+                                  });
+
+                                  Navigator.pop(context);
+
+                                  setState(() {
+                                    _usernameController.text = newUsername;
+                                    _validateInputs();
+                                  });
+
+                                  showCupertinoGlassToast(
+                                    context,
+                                    'Username "$newUsername" added',
+                                    isSuccess: true,
+                                    position: ToastPosition.top,
+                                  );
+                                }
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF007AFF), Color(0xFF0051D6)],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Save Username',
+                                    style: GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                          : const SizedBox.shrink(),
+                    ),
+
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   Widget _languageSelector() {
     final bool isEnabled = !_isLocked;
@@ -321,20 +764,32 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget _customTextField({
     required String label,
     required TextEditingController controller,
+    String? hintText, // ✅ New optional parameter
     IconData? prefixIcon,
     IconData? suffixIcon,
     bool isPassword = false,
     VoidCallback? onSuffixTap,
-    bool isEnabled = true, // ✅ allows disabling the field
+    bool isEnabled = true,
   }) {
     final focusNode = FocusNode();
+    bool wasFocused = false;
 
     return StatefulBuilder(
-      builder: (context, setState) {
-        focusNode.addListener(() => setState(() {}));
-
-        final bool isFocused = focusNode.hasFocus;
-        final bool hasInput = controller.text.isNotEmpty;
+      builder: (context, localSetState) {
+        focusNode.addListener(() {
+          // Select all text on first focus
+          if (focusNode.hasFocus && !wasFocused) {
+            wasFocused = true;
+            controller.selection = TextSelection(
+              baseOffset: 0,
+              extentOffset: controller.text.length,
+            );
+          }
+          if (!focusNode.hasFocus) {
+            wasFocused = false;
+          }
+          localSetState(() {});
+        });
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,7 +801,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: isEnabled
-                    ? (isFocused ? Colors.black.withOpacity(0.85) : Colors.black.withOpacity(0.65))
+                    ? Colors.black.withOpacity(0.85)
                     : Colors.grey.shade400,
               ),
               child: Text(label),
@@ -356,27 +811,23 @@ class _SignInScreenState extends State<SignInScreen> {
               borderRadius: BorderRadius.circular(20),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeInOutCubic,
+                child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(isEnabled ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: !isEnabled
                           ? Colors.grey.withOpacity(0.3)
-                          : (isFocused
-                          ? Colors.black.withOpacity(0.25)
-                          : AppColors.inputBorder.withOpacity(0.3)),
+                          : AppColors.inputBorder.withOpacity(0.3),
                       width: 1.2,
                     ),
                   ),
                   child: TextField(
-                    enabled: isEnabled,
                     controller: controller,
                     focusNode: focusNode,
+                    enabled: isEnabled,
                     obscureText: isPassword && !_isPasswordVisible,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => _validateInputs(),
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -384,7 +835,11 @@ class _SignInScreenState extends State<SignInScreen> {
                     ),
                     cursorColor: Colors.black,
                     decoration: InputDecoration(
-                      filled: false,
+                      hintText: hintText ?? '',
+                      hintStyle: GoogleFonts.inter(
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w400,
+                      ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                       border: InputBorder.none,
                       prefixIcon: prefixIcon != null
@@ -393,15 +848,11 @@ class _SignInScreenState extends State<SignInScreen> {
                         child: Icon(
                           prefixIcon,
                           size: 20,
-                          color: isEnabled
-                              ? (isFocused
-                              ? Colors.black.withOpacity(0.75)
-                              : AppColors.secondaryText)
-                              : Colors.grey.shade400,
+                          color: Colors.black.withOpacity(0.75),
                         ),
                       )
                           : null,
-                      suffixIcon: (suffixIcon != null && hasInput)
+                      suffixIcon: (suffixIcon != null && controller.text.isNotEmpty)
                           ? GestureDetector(
                         onTap: isEnabled ? onSuffixTap : null,
                         child: Padding(
@@ -409,11 +860,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           child: Icon(
                             suffixIcon,
                             size: 20,
-                            color: isEnabled
-                                ? (isFocused
-                                ? Colors.black.withOpacity(0.75)
-                                : AppColors.secondaryText)
-                                : Colors.grey.shade400,
+                            color: Colors.black.withOpacity(0.75),
                           ),
                         ),
                       )
@@ -455,19 +902,58 @@ class _SignInScreenState extends State<SignInScreen> {
                 curve: Curves.easeOut,
                 child: GestureDetector(
                   onTap: isEnabled
-                      ? () {
+                      ? () async {
                     final username = _usernameController.text.trim();
                     final password = _passwordController.text;
+                    final dto = LoginUserDto(username: username, password: password);
 
-                    if (username == 'sami' && password == '123') {
+                    final response = await _authService.login(dto);
+
+                    if (response != null && response.statusCode == 200) {
+                      final prefs = await SharedPreferences.getInstance();
+                      final secureStorage = FlutterSecureStorage();
+
+                      // ✅ Save credentials
+                      await prefs.setString('remembered_username', username);
+                      await secureStorage.write(key: 'password_$username', value: password);
+
+                      List<String> previousUsers =
+                          prefs.getStringList('past_usernames') ?? [];
+                      if (!previousUsers.contains(username)) {
+                        previousUsers.add(username);
+                        await prefs.setStringList('past_usernames', previousUsers);
+                      }
+
+                      final isFirst = _isFirstLogin;
+                      if (isFirst) {
+                        final biometricService = BiometricService();
+                        final success = await biometricService.promptFingerprintSetup();
+
+                        if (!success) {
+                          showCupertinoGlassToast(
+                            context,
+                            'Please activate fingerprint to continue.',
+                            isSuccess: false,
+                            position: ToastPosition.top,
+                          );
+                          return;
+                        }
+                        await prefs.setBool('first_login_$username', false);
+                      }
+
                       setState(() {
                         _remainingAttempts = 3;
                         _isLocked = false;
                         _remainingTime = Duration.zero;
                         _unlockTime = null;
+                        _isFirstLogin = false;
                       });
-                      context.go('/security_code_setup');
-                    } else {
+
+                      // ✅ Use post-frame callback to avoid Impeller crash
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        context.go('/security_code_setup');
+                      });
+                    } else if (response != null) {
                       setState(() {
                         _remainingAttempts--;
                       });
@@ -484,13 +970,20 @@ class _SignInScreenState extends State<SignInScreen> {
                       if (_remainingAttempts == 0) {
                         setState(() {
                           _isLocked = true;
-                          final nextLockDuration = Duration(minutes: 1 + 4 * _lockAttemptLevel); // e.g., 1, 5, 9...
+                          final nextLockDuration = Duration(minutes: 1 + 4 * _lockAttemptLevel);
                           _unlockTime = DateTime.now().add(nextLockDuration);
                           _lockDuration = nextLockDuration;
                           _remainingTime = _lockDuration;
                         });
                         _ticker.start();
                       }
+                    } else {
+                      showCupertinoGlassToast(
+                        context,
+                        'Server error. Please try again.',
+                        isSuccess: false,
+                        position: ToastPosition.top,
+                      );
                     }
                   }
                       : null,
@@ -530,13 +1023,92 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Widget _buildFaceIDOption() {
+    final bool isDisabled = _isLocked || _isFirstLogin;
+
     return Center(
       child: GestureDetector(
-        onTap: _isLocked ? null : () {
-          // TODO: Add Face ID logic
+        onTap: isDisabled
+            ? null
+            : () async {
+          final biometricService = BiometricService();
+          final authenticated = await biometricService.authenticateWithBiometrics(
+            reason: 'Sign in to your SmartBank account',
+          );
+          print('✅ Biometric authenticated: $authenticated');
+
+          if (!authenticated) {
+            showCupertinoGlassToast(
+              context,
+              'Authentication failed or cancelled.',
+              isSuccess: false,
+              position: ToastPosition.top,
+            );
+            return;
+          }
+
+          final username = _usernameController.text.trim();
+          print('🔍 Username used for biometric login: "$username"');
+
+          if (username.isEmpty) {
+            showCupertinoGlassToast(
+              context,
+              'No user selected. Please choose or enter a username.',
+              isSuccess: false,
+              position: ToastPosition.top,
+            );
+            return;
+          }
+
+          final secureStorage = FlutterSecureStorage();
+          final storedPassword = await secureStorage.read(key: 'password_$username');
+          print('🔐 Stored password: ${storedPassword != null ? "✅ Found" : "❌ Not found"}');
+
+          if (storedPassword == null) {
+            showCupertinoDialog(
+              context: context,
+              builder: (_) => CupertinoAlertDialog(
+                title: const Text('No Credentials Found'),
+                content: const Text('Please log in manually at least once to enable biometric login.'),
+                actions: [
+                  CupertinoDialogAction(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+
+          final response = await _authService.login(
+            LoginUserDto(username: username, password: storedPassword),
+          );
+
+          if (response != null && response.statusCode == 200) {
+            print('✅ Biometric login successful. Redirecting...');
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('first_login_${username}', false); // ✅ mark as not first anymore
+            setState(() {
+              _isFirstLogin = false;
+            });
+
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.go('/verify_code'); // ✅ redirected here
+            });
+          }
+
+          else {
+            showCupertinoGlassToast(
+              context,
+              'Biometric login failed. Try entering your password.',
+              isSuccess: false,
+              position: ToastPosition.top,
+            );
+          }
         },
         child: AnimatedOpacity(
-          opacity: _isLocked ? 0.4 : 1.0,
+          opacity: isDisabled ? 0.4 : 1.0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
           child: Column(
@@ -625,62 +1197,61 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Widget _buildForgotPasswordText() {
+    final bool isDisabled = _isLocked || _isFirstLogin;
+
     return Center(
       child: GestureDetector(
-        onTap: _isLocked
+        onTap: isDisabled
             ? null
             : () {
-          context.go('/verify_code');
+          context.go('/home');
         },
-        child: RichText(
-          text: TextSpan(
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: AppColors.secondaryText,
+        child: AnimatedOpacity(
+          opacity: isDisabled ? 0.4 : 1.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          child: RichText(
+            text: TextSpan(
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: AppColors.secondaryText,
+              ),
+              children: [
+                const TextSpan(text: "Forgot your password? "),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.lock_reset,
+                      size: 18,
+                      color: isDisabled ? Colors.grey.shade400 : Colors.black,
+                    ),
+                  ),
+                ),
+                TextSpan(
+                  text: 'Reset here',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDisabled ? Colors.grey.shade400 : Colors.black,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ],
             ),
-            children: [
-              const TextSpan(text: "Forgot your password? "),
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Icon(Icons.lock_reset, size: 18, color: Colors.black),
-                ),
-              ),
-              TextSpan(
-                text: 'Reset here',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _isLocked ? Colors.grey.shade400 : Colors.black,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ],
           ),
         ),
       ),
     );
   }
 
+
   @override
   void initState() {
     super.initState();
 
-    _usernameController.addListener(_validateInputs);
-    _passwordController.addListener(_validateInputs);
-
-    if (widget.showRedirectToast) {
-      Future.delayed(const Duration(milliseconds: 700), () {
-        showCupertinoGlassToast(
-          context,
-          'Password updated. You can now sign in with your new credentials.',
-          isSuccess: true,
-          position: ToastPosition.top,
-        );
-      });
-    }
-
+    // ⏳ Setup countdown ticker
     _remainingTime = Duration.zero;
     _ticker = Ticker((elapsed) {
       final now = DateTime.now();
@@ -694,10 +1265,10 @@ class _SignInScreenState extends State<SignInScreen> {
           _isLocked = false;
           _remainingAttempts = 3;
           _remainingTime = Duration.zero;
-          _lockAttemptLevel++; // ⬆️ Increase lock level
+          _lockAttemptLevel++;
         });
 
-        // ✅ Show modal when unlocked
+        // ✅ Show unlock success dialog
         Future.delayed(const Duration(milliseconds: 400), () {
           showCupertinoDialog(
             context: context,
@@ -706,20 +1277,15 @@ class _SignInScreenState extends State<SignInScreen> {
               insetAnimationCurve: Curves.easeInOut,
               title: Column(
                 children: [
-                  const Icon(
-                    CupertinoIcons.checkmark_seal_fill,
-                    size: 44,
-                    color: CupertinoColors.activeGreen,
-                  ),
+                  const Icon(CupertinoIcons.checkmark_seal_fill,
+                      size: 44, color: CupertinoColors.activeGreen),
                   const SizedBox(height: 12),
-                  Text(
-                    "You're Unblocked",
-                    style: GoogleFonts.inter(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: CupertinoColors.black,
-                    ),
-                  ),
+                  Text("You're Unblocked",
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: CupertinoColors.black,
+                      )),
                 ],
               ),
               content: Padding(
@@ -747,25 +1313,101 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                 )
               ],
-            )
+            ),
           );
         });
       }
     });
 
+    // 🧠 Load user info from SharedPreferences
+    SharedPreferences.getInstance().then((prefs) async {
+      final savedUsername = prefs.getString('remembered_username');
+      final past = prefs.getStringList('past_usernames') ?? [];
+
+      final secureStorage = FlutterSecureStorage();
+      final storedPassword = savedUsername != null
+          ? await secureStorage.read(key: 'password_$savedUsername')
+          : null;
+
+      // ✅ Debug prints
+      print('🔐 Remembered username: $savedUsername');
+      print('📦 Past usernames: $past');
+      print('🔐 Stored password for $savedUsername: ${storedPassword != null ? storedPassword : '❌ null'}');
+
+      // 🧼 Clean orphaned remembered_username
+      if (savedUsername != null && !past.contains(savedUsername)) {
+        await prefs.remove('remembered_username');
+      }
+
+      final currentUser = savedUsername != null && past.contains(savedUsername)
+          ? savedUsername
+          : (past.isNotEmpty ? past.last : null);
+
+      final isFirst = currentUser != null
+          ? (prefs.getBool('first_login_$currentUser') ?? true)
+          : true;
+
+      setState(() {
+        _pastUsernames = past;
+        _isFirstLogin = isFirst;
+      });
+
+      if (currentUser != null) {
+        _usernameController.text = currentUser;
+        await _checkIfFirstLogin(currentUser); // make sure it's awaited
+      }
+
+    });
+
+    // 👂 Input field listeners
+    _usernameController.addListener(_validateInputs);
+    _passwordController.addListener(_validateInputs);
+
+    // 🔔 Redirect toast (e.g., after password reset)
+    if (widget.showRedirectToast) {
+      Future.delayed(const Duration(milliseconds: 700), () {
+        showCupertinoGlassToast(
+          context,
+          'Password updated. You can now sign in with your new credentials.',
+          isSuccess: true,
+          position: ToastPosition.top,
+        );
+      });
+    }
+  }
+
+  Future<void> _checkIfFirstLogin(String username) async {
+    final prefs = await SharedPreferences.getInstance();
+    final isFirst = username.isEmpty
+        ? true
+        : (prefs.getBool('first_login_$username') ?? true);
+
+    if (_isFirstLogin != isFirst) {
+      setState(() {
+        _isFirstLogin = isFirst;
+      });
+    }
   }
 
 
+
   void _validateInputs() {
-    final isEnabled = _usernameController.text.isNotEmpty &&
-        _passwordController.text.isNotEmpty;
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+
+    final isEnabled = username.isNotEmpty && password.isNotEmpty;
 
     if (_isButtonEnabled != isEnabled) {
       setState(() {
         _isButtonEnabled = isEnabled;
       });
     }
-  }
 
+    // ✅ Always trigger first login check, even if username is empty (to reset UI)
+    _loginCheckTimer?.cancel();
+    _loginCheckTimer = Timer(const Duration(milliseconds: 300), () {
+      _checkIfFirstLogin(username); // triggers true if empty or false based on prefs
+    });
+  }
 
 }

@@ -1,7 +1,8 @@
 // home2.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sami/screens/Landing3.dart';
+
+import 'Landing3.dart';
 
 class Landing2 extends StatelessWidget {
   const Landing2({Key? key}) : super(key: key);

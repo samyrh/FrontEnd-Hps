@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sami/router/app_router.dart';
+import 'package:hps_direct/router/app_router.dart'; // ✅ Correct
+// removed: import 'package:hps_direct/main.dart';
 
 void main() {
   runApp(const MyApp());

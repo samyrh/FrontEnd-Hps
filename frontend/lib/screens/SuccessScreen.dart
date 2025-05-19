@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sami/screens/PhysicalCardDetailsScreen.dart';
-import 'package:sami/screens/VirtualCardDetailsScreen.dart';
+
+import 'PhysicalCardDetailsScreen.dart';
+import 'VirtualCardDetailsScreen.dart';
 
 
 
