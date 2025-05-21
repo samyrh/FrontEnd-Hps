@@ -2,11 +2,9 @@ package hps.ma.userservice.dao.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.util.List;
 
 
 @Entity
-@Table
 @Setter
 @Getter
 @AllArgsConstructor
@@ -28,7 +26,7 @@ public class Cardholder {
     private String password;
 
     @Column(name = "is_locked", nullable = false)
-    private boolean isLocked;
+    private boolean locked;
 
     @Column(name = "login_attempts", nullable = false)
     private int loginAttempts = 0;
@@ -38,5 +36,9 @@ public class Cardholder {
 
     @Column(length = 6)
     private String securityCode;
-    
+
+    @Column(name = "is_first_login", nullable = false)
+    private boolean isFirstLogin = true;
+
+
 }

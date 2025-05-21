@@ -1,8 +1,8 @@
 package hps.ma.userservice.web;
 
-import hps.ma.userservice.dto.LoginResponse;
-import hps.ma.userservice.dto.LoginUserDto;
-import hps.ma.userservice.dto.RegisterUserDto;
+import hps.ma.userservice.dto.user.LoginResponse;
+import hps.ma.userservice.dto.user.LoginUserDto;
+import hps.ma.userservice.dto.user.RegisterUserDto;
 import hps.ma.userservice.services.AuthenticationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

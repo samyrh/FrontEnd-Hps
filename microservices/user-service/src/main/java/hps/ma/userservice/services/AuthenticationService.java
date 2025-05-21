@@ -6,9 +6,9 @@ import hps.ma.userservice.dao.entities.Cardholder;
 import hps.ma.userservice.dao.entities.CardholderAuth;
 import hps.ma.userservice.dao.repositories.AgentRepository;
 import hps.ma.userservice.dao.repositories.CardholderReository;
-import hps.ma.userservice.dto.LoginResponse;
-import hps.ma.userservice.dto.LoginUserDto;
-import hps.ma.userservice.dto.RegisterUserDto;
+import hps.ma.userservice.dto.user.LoginResponse;
+import hps.ma.userservice.dto.user.LoginUserDto;
+import hps.ma.userservice.dto.user.RegisterUserDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -62,7 +62,8 @@ public class AuthenticationService {
                 .username(dto.getUsername()) // ✅ now using username
                 .email(dto.getEmail())
                 .password(passwordEncoder.encode(dto.getPassword()))
-                .isLocked(false)
+                .locked(false)
+                .isFirstLogin(true)
                 .loginAttempts(0)
                 .biometricEnabled(false)
                 .build();
