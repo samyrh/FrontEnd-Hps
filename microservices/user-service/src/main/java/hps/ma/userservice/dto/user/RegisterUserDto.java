@@ -1,4 +1,4 @@
-package hps.ma.userservice.dto;
+package hps.ma.userservice.dto.user;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
