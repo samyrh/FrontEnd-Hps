@@ -1237,7 +1237,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
         onTap: isDisabled
             ? null
             : () {
-          context.go('/home');
+          context.go('/identify_user');
         },
         child: AnimatedOpacity(
           opacity: isDisabled ? 0.4 : 1.0,
