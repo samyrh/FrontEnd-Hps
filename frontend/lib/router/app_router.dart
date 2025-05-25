@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hps_direct/screens/ChangePassword.dart';
 import '../screens/AiScreen1.dart';
 import '../screens/CardPacksScreen.dart';
 import '../screens/ChooseCardColorScreen.dart';
@@ -235,6 +236,12 @@ final GoRouter appRouter = GoRouter(
       name: 'card_packs',
       pageBuilder: (context, state) =>
           buildSlideTransitionPage(child: const CardPacksScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/change_password',
+      name: 'change password',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const ChangePasswordScreen(), state: state),
     ),
 
 

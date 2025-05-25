@@ -1,7 +1,5 @@
 package hps.ma.eventservice.dao.entity;
 
-
-
 import hps.ma.eventservice.enums.EventCategory;
 import hps.ma.eventservice.enums.SenderType;
 import jakarta.persistence.*;
@@ -22,19 +20,25 @@ public class Event {
     private Long id;
 
     private String message;
+
+    @Temporal(TemporalType.TIMESTAMP)
     private Date sentAt;
 
     @Enumerated(EnumType.STRING)
-    private SenderType senderType;
+    @Column(nullable = false)
+    private SenderType senderType; // AGENT or CARDHOLDER
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private EventCategory category;
 
     private boolean isRead;
 
+    @Column(nullable = false)
+    private Long senderId;     // ID of Agent or Cardholder (based on senderType)
 
-    // Only store IDs — not entity objects from other services
-    private Long senderAgentId;
-    private Long recipientCardholderId;
-    private Long cardId;
+    @Column(nullable = false)
+    private Long recipientId;  // Always a Cardholder ID
+
+    private Long cardId;       // Optional: linked card
 }

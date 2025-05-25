@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.Date;
 
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -19,7 +20,10 @@ public class EventPayload {
     private Date sentAt;
     private SenderType senderType;
     private EventCategory category;
-    private Long senderAgentId;
-    private Long recipientCardholderId;
-    private Long cardId; // Optional for card-related events
+    private String email;
+    private String username;
+    private String password; // encrypted
+    private Long senderId;     // Now works for both Agent or Cardholder
+    private Long recipientId;  // Always a Cardholder
+    private Long cardId;       // Optional for card-related events
 }

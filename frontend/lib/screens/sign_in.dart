@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -913,12 +914,21 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                       final prefs = await SharedPreferences.getInstance();
                       final secureStorage = FlutterSecureStorage();
 
-                      // ✅ Save credentials
+                      // ✅ Extract and store the JWT token
+                      final data = jsonDecode(response.body);
+                      final token = data['token'];
+                      if (token != null) {
+                        await prefs.setString('jwt_token', token);
+                        print('✅ JWT token stored: $token');
+                      } else {
+                        print('❌ No token in login response.');
+                      }
+
+                      // ✅ Save user credentials
                       await prefs.setString('remembered_username', username);
                       await secureStorage.write(key: 'password_$username', value: password);
 
-                      List<String> previousUsers =
-                          prefs.getStringList('past_usernames') ?? [];
+                      List<String> previousUsers = prefs.getStringList('past_usernames') ?? [];
                       if (!previousUsers.contains(username)) {
                         previousUsers.add(username);
                         await prefs.setStringList('past_usernames', previousUsers);
@@ -949,14 +959,14 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                         _isFirstLogin = false;
                       });
 
-                      // ✅ Use post-frame callback to avoid Impeller crash
+                      // ✅ Navigate after login
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (isFirst) {
                           context.go('/security_code_setup');
                         } else {
                           context.go('/verify_code', extra: {
                             'isFirstLogin': false,
-                            'fromLogin': true, // ✅ key flag for redirection logic
+                            'fromLogin': true,
                           });
                         }
                       });
@@ -1093,9 +1103,19 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
 
           if (response != null && response.statusCode == 200) {
             print('✅ Biometric login successful. Redirecting...');
-
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('first_login_${username}', false); // ✅ mark as not first anymore
+
+            // ✅ Extract and store JWT token
+            final data = jsonDecode(response.body);
+            final token = data['token'];
+            if (token != null) {
+              await prefs.setString('jwt_token', token);
+              print('✅ JWT token stored (biometric): $token');
+            } else {
+              print('❌ Token missing from biometric login response.');
+            }
+
+            await prefs.setBool('first_login_$username', false);
             setState(() {
               _isFirstLogin = false;
             });
@@ -1111,9 +1131,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
               }
             });
 
-          }
-
-          else {
+          } else {
             showCupertinoGlassToast(
               context,
               'Biometric login failed. Try entering your password.',

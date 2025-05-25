@@ -2,10 +2,15 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../screens/sign_in.dart';
+import '../services/change_password/ChangePasswordService.dart';
+import '../services/change_password/VerifyPasswordService.dart';
 import '../widgets/Toast.dart';
 import 'dart:async';
+
+import 'Home.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -112,34 +117,34 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         _getStrength(newPasswordController.text) >= 0.75;
   }
 
-  void _onSave() {
-    showCupertinoGlassToast(
-      context,
-      'Password changed successfully. You will be redirected to sign in with your new credentials.',
-      isSuccess: true,
-      position: ToastPosition.top,
-    );
+  void _onSave() async {
+    final oldPassword = currentPasswordController.text;
+    final newPassword = newPasswordController.text;
 
-    Future.delayed(const Duration(milliseconds: 1800), () {
-      Navigator.of(context).pushAndRemoveUntil(
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 620),
-          reverseTransitionDuration: const Duration(milliseconds: 620),
-          pageBuilder: (_, __, ___) => const SignInScreen(showRedirectToast: true),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic);
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(-1.0, 0.0), // slide from left
-                end: Offset.zero,
-              ).animate(curved),
-              child: FadeTransition(opacity: curved, child: child),
-            );
-          },
-        ),
-            (route) => false,
+    final success = await ChangePasswordService().changePassword(oldPassword, newPassword);
+
+    if (success) {
+      showCupertinoGlassToast(
+        context,
+        'Password changed successfully. Redirecting to home...',
+        isSuccess: true,
+        position: ToastPosition.top,
       );
-    });
+
+      Future.delayed(const Duration(milliseconds: 2200), () {
+        context.go('/home', extra: {
+          'showToast': true,
+          'toastMessage': "You're now signed in with your new password!"
+        });
+      });
+    } else {
+      showCupertinoGlassToast(
+        context,
+        'Current password is incorrect.',
+        isSuccess: false,
+        position: ToastPosition.top,
+      );
+    }
   }
 
 
@@ -149,14 +154,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     return Center(
       child: GestureDetector(
         onTap: isButtonEnabled
-            ? () {
+            ? () async {
           final input = currentPasswordController.text;
-          final isValid = input == '123'; // Replace with actual validation
+          final isValid = await VerifyPasswordService().verifyCurrentPassword(input);
 
           if (isValid) {
             showCupertinoGlassToast(
               context,
-              'Password verified. Now choose a strong password that includes an uppercase letter, number, and symbol.',
+              'Password verified. Now choose a strong new password.',
               isSuccess: true,
               position: ToastPosition.top,
             );
@@ -166,7 +171,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             });
           } else {
             setState(() {
-              currentPasswordController.clear(); //
+              currentPasswordController.clear();
               remainingTries -= 1;
             });
 
@@ -179,29 +184,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               );
 
               Future.delayed(const Duration(milliseconds: 1800), () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  PageRouteBuilder(
-                    transitionDuration: const Duration(milliseconds: 620),
-                    reverseTransitionDuration: const Duration(milliseconds: 620),
-                    pageBuilder: (_, __, ___) => const SignInScreen(showRedirectToast: true),
-                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                      final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic);
-                      return SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(-1.0, 0.0),
-                          end: Offset.zero,
-                        ).animate(curved),
-                        child: FadeTransition(opacity: curved, child: child),
-                      );
-                    },
-                  ),
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/home',
                       (route) => false,
                 );
+
               });
             } else {
               showCupertinoGlassToast(
                 context,
-                'Incorrect current password. $remainingTries attempt${remainingTries > 1 ? 's' : ''} left.',
+                'Incorrect password. $remainingTries attempt${remainingTries > 1 ? 's' : ''} left.',
                 isSuccess: false,
                 position: ToastPosition.top,
               );
@@ -264,7 +256,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: const BackButton(color: Colors.black),
+          automaticallyImplyLeading: false, // ✅ Hides back arrow
           title: const Text(
             'Change Password',
             style: TextStyle(
@@ -276,6 +268,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           ),
           centerTitle: true,
         ),
+
         body: SafeArea(
           child: SingleChildScrollView(
             controller: _scrollController,

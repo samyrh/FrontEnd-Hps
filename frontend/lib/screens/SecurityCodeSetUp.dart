@@ -1,9 +1,13 @@
 import 'dart:ui';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
+
+import '../services/security_code_setup/SecurityCodeService.dart';
 
 class SecurityCodeSetupScreen extends StatefulWidget {
   const SecurityCodeSetupScreen({super.key});
@@ -16,6 +20,8 @@ class _SecurityCodeSetupScreenState extends State<SecurityCodeSetupScreen> {
   final int length = 6;
   bool isConfirmStep = false;
   bool codesMatch = false;
+  final SecurityCodeService _securityCodeService = SecurityCodeService();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   late final List<TextEditingController> _codeControllers;
   late final List<TextEditingController> _confirmControllers;
@@ -103,9 +109,33 @@ class _SecurityCodeSetupScreenState extends State<SecurityCodeSetupScreen> {
     }
   }
 
-  void _submitCode() {
+  void _submitCode() async {
     final code = _codeControllers.map((e) => e.text).join();
 
+    // 🔐 Get the token
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+    if (token == null) {
+      print('❌ No JWT token found.');
+      return;
+    }
+
+    // ✅ Submit security code using only token and code
+    final success = await _securityCodeService.submitSecurityCode(
+      code: code,
+    );
+
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("Failed to submit security code."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // 🎉 Show success dialog
     showGeneralDialog(
       context: context,
       barrierLabel: "Security Code",
@@ -157,27 +187,18 @@ class _SecurityCodeSetupScreenState extends State<SecurityCodeSetupScreen> {
                           color: Colors.white,
                           letterSpacing: 6,
                           decoration: TextDecoration.none,
-                          shadows: [
-                            Shadow(color: Colors.white24, blurRadius: 6),
-                            Shadow(color: Colors.black45, offset: Offset(0, 1)),
-                          ],
                         ),
                       ),
                       const SizedBox(height: 16),
                       GestureDetector(
                         onTap: () {
-                          // Dismiss the dialog using root navigator
                           Navigator.of(context, rootNavigator: true).pop();
-
-                          // Wait until next frame to safely navigate
                           WidgetsBinding.instance.addPostFrameCallback((_) {
                             if (mounted) {
-                              GoRouter.of(context).go('/home', extra: {'showWelcome': true});
+                              GoRouter.of(context).go('/change_password', extra: {'showWelcome': true});
                             }
                           });
                         },
-
-
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                           margin: const EdgeInsets.only(top: 8),

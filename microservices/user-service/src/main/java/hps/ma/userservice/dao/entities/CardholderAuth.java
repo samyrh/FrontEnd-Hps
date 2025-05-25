@@ -37,9 +37,8 @@ public class CardholderAuth implements UserDetails {
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return !cardholder.isFirstLogin();
+        return true;
     }
-
 
     @Override
     public boolean isEnabled() { return !cardholder.isLocked(); }

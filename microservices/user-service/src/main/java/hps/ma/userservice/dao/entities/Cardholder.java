@@ -34,7 +34,7 @@ public class Cardholder {
     @Column(name = "biometric_enabled", nullable = false)
     private boolean biometricEnabled;
 
-    @Column(length = 6)
+    @Column(name = "security_code", length = 100) // Increase length from default (e.g. 45 or 50)
     private String securityCode;
 
     @Column(name = "is_first_login", nullable = false)

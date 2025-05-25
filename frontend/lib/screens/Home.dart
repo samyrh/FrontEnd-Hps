@@ -341,33 +341,46 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _initCardSettings("Visa Youth");
   }
+  String _getTimeBasedGreeting() {
+    final hour = DateTime.now().hour;
+
+    if (hour < 12) return 'Good morning ☀️';
+    if (hour < 18) return 'Good afternoon 🌤️';
+    return 'Good evening 🌙';
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Only show toast once
-    if (!_hasShownWelcomeToast) {
-      final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
+    final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
 
-      if (extra?['showWelcome'] == true) {
-        _hasShownWelcomeToast = true;
+    // ✅ Welcome Greeting Based on Time
+    if (!_hasShownWelcomeToast && extra?['showWelcome'] == true) {
+      _hasShownWelcomeToast = true;
 
-        Future.delayed(const Duration(milliseconds: 500), () {
-          final hour = DateTime.now().hour;
-          final greeting = hour < 12
-              ? 'Good morning ☀️'
-              : hour < 18
-              ? 'Good afternoon 🌤️'
-              : 'Good evening 🌙';
+      Future.delayed(const Duration(milliseconds: 500), () {
+        final greeting = _getTimeBasedGreeting();
 
-          showCupertinoGlassToast(
-            context,
-            "$greeting\nWelcome back!",
-            isSuccess: true,
-            position: ToastPosition.top,
-          );
-        });
-      }
+        showCupertinoGlassToast(
+          context,
+          "$greeting\nWelcome back!",
+          isSuccess: true,
+          position: ToastPosition.top,
+        );
+      });
+    }
+
+    // ✅ Post-Password-Change Toast (with delay)
+    if (extra?['showToast'] == true && extra?['toastMessage'] != null) {
+      Future.delayed(const Duration(milliseconds: 1100), () {
+        showCupertinoGlassToast(
+          context,
+          extra!['toastMessage'],
+          isSuccess: true,
+          position: ToastPosition.top,
+        );
+      });
     }
   }
 

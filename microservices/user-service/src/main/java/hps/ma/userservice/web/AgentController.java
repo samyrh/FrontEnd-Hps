@@ -19,7 +19,7 @@ public class AgentController {
 
     private final CardholderService cardholderService;
 
-    @PreAuthorize("hasRole('ROLE_AGENT')")
+    @PreAuthorize("hasRole('AGENT')")
     @PostMapping("/cardholders")
     public ResponseEntity<?> createCardholder(
             @RequestBody CreateCardholderRequest request,
