@@ -12,4 +12,5 @@ public interface CardholderReository extends JpaRepository<Cardholder, Long> {
     Optional<Cardholder> findByUsername(String username);
 
 
+    boolean existsByUsername(String username);
 }

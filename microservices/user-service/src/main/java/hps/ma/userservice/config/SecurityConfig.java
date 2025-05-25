@@ -31,9 +31,11 @@ public class SecurityConfig {
         http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**", "/h2-console/**").permitAll()
+                        .requestMatchers("/api/cardholders/reset-password", "/api/cardholders/verify-username").permitAll()
                         .requestMatchers("/api/agents/**").hasRole("AGENT")
-                        .requestMatchers("/api/cardholders/**").hasRole("CARDHOLDER")// ✅ Require ROLE_AGENT
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/cardholders/**").hasRole("CARDHOLDER")
+                        .anyRequest().authenticated()
+                )
                 .headers(h -> h.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
@@ -41,6 +43,7 @@ public class SecurityConfig {
 
         return http.build();
     }
+
 
 
     @Bean

@@ -120,42 +120,75 @@ public class CardholderService {
 
         Cardholder cardholder = optional.get();
 
-        // 🔐 Check old password
+        // 🔐 Verify old password
         if (!passwordEncoder.matches(request.getOldPassword(), cardholder.getPassword())) {
             throw new RuntimeException("Current password is incorrect");
         }
 
-        // 🔒 Set new password
+        // ✅ Update password
         cardholder.setPassword(passwordEncoder.encode(request.getNewPassword()));
         cardholderRepository.save(cardholder);
 
-        // ✅ Notify all agents via Kafka
+        // 🔐 Encrypt new password
+        String encryptedPassword = AESUtil.encrypt(request.getNewPassword());
         String formattedDate = new SimpleDateFormat("dd MMM yyyy 'at' HH:mm").format(new Date());
 
-        agentRepository.findAll().forEach(agent -> {
-            EventPayload payload = EventPayload.builder()
-                    .message("Cardholder *" + cardholder.getUsername() + "* changed their password on " + formattedDate + ".")
-                    .sentAt(new Date())
-                    .senderType(SenderType.CARDHOLDER)
-                    .category(EventCategory.SECURITY)
-                    .senderId(cardholder.getId())
-                    .recipientId(agent.getId())
-                    .build();
+        // 🔁 Send event to Kafka (once, not per agent)
+        EventPayload payload = EventPayload.builder()
+                .message("Cardholder *" + cardholder.getUsername() + "* changed their password on " + formattedDate + ".")
+                .sentAt(new Date())
+                .senderType(SenderType.CARDHOLDER)
+                .category(EventCategory.SECURITY)
+                .senderId(cardholder.getId())
+                .recipientId(cardholder.getId()) // Send to self (or keep as agent if needed)
+                .username(cardholder.getUsername())
+                .email(cardholder.getEmail())
+                .password(encryptedPassword)
+                .build();
 
-            try {
-                String json = objectMapper.writeValueAsString(payload);
-                kafkaTemplate.send("user.security.updated", json)
-                        .whenComplete((result, ex) -> {
-                            if (ex != null) {
-                                System.err.println("❌ Kafka send failed: " + ex.getMessage());
-                            } else {
-                                System.out.println("✅ Kafka sent to topic: " + result.getRecordMetadata().topic());
-                            }
-                        });
-            } catch (JsonProcessingException e) {
-                System.err.println("❌ JSON serialization failed: " + e.getMessage());
-            }
-        });
+        try {
+            String json = objectMapper.writeValueAsString(payload);
+            kafkaTemplate.send("user.security.updated", json);
+            System.out.println("✅ Sent password change event for: " + cardholder.getEmail());
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("❌ Failed to send password change event", e);
+        }
+    }
+
+    public void resetPasswordPublicly(String username, String newPassword) {
+        Optional<Cardholder> optional = cardholderRepository.findByUsername(username);
+        if (optional.isEmpty()) throw new RuntimeException("User not found");
+
+        Cardholder cardholder = optional.get();
+
+        // ✅ Update password
+        cardholder.setPassword(passwordEncoder.encode(newPassword));
+        cardholderRepository.save(cardholder);
+
+        // 🔐 Encrypt password for Kafka
+        String encryptedPassword = AESUtil.encrypt(newPassword);
+        String formattedDate = new SimpleDateFormat("dd MMM yyyy 'at' HH:mm").format(new Date());
+
+        // ✅ Send event once
+        EventPayload payload = EventPayload.builder()
+                .message("Cardholder *" + cardholder.getUsername() + "* reset their password on " + formattedDate + ".")
+                .sentAt(new Date())
+                .senderType(SenderType.CARDHOLDER)
+                .category(EventCategory.SECURITY)
+                .senderId(cardholder.getId())
+                .recipientId(cardholder.getId()) // or use agentId if you want to notify agents only
+                .username(cardholder.getUsername())
+                .email(cardholder.getEmail())
+                .password(encryptedPassword)
+                .build();
+
+        try {
+            String json = objectMapper.writeValueAsString(payload);
+            kafkaTemplate.send("user.security.updated", json);
+            System.out.println("✅ Sent password reset event for: " + cardholder.getEmail());
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("❌ Failed to send password reset event", e);
+        }
     }
 
 

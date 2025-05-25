@@ -64,6 +64,31 @@ public class CardholderController {
         cardholderService.changePassword(username, request);
         return ResponseEntity.ok("Password changed successfully.");
     }
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> payload) {
+        String username = payload.get("username");
+        String newPassword = payload.get("newPassword");
+
+        try {
+            cardholderService.resetPasswordPublicly(username, newPassword);
+            return ResponseEntity.ok("Password reset successfully");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/verify-username")
+    public ResponseEntity<?> verifyUsername(@RequestBody Map<String, String> request) {
+        String username = request.get("username");
+
+        boolean exists = cardholderReository.existsByUsername(username);
+
+        if (exists) {
+            return ResponseEntity.ok().build(); // ✅ 200 = valid
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        }
+    }
 
 
 
