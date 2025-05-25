@@ -14,19 +14,33 @@ public class EmailScheduler {
     private final EmailBuffer emailBuffer;
     private final EmailService emailService;
 
-    @Scheduled(fixedRate = 300000) // every 5 minutes
+    @Scheduled(fixedRate = 30000) // 30 seconds for testing; change to 300000 (5 mins) in production
     public void sendBufferedEmails() {
         List<EventPayload> queue = emailBuffer.drain();
+        System.out.println("📬 [Scheduler] Processing " + queue.size() + " buffered email(s)...");
 
         for (EventPayload payload : queue) {
             try {
-                String decrypted = AESUtil.decrypt(payload.getPassword());
-                emailService.sendCredentialsEmail(payload.getEmail(), payload.getUsername(), decrypted);
+                String message = payload.getMessage() != null ? payload.getMessage().toLowerCase() : "";
+                String decryptedPassword = AESUtil.decrypt(payload.getPassword());
+
+                if (message.contains("changed their password")) {
+                    emailService.sendPasswordChangedEmail(payload.getEmail(), payload.getUsername(), decryptedPassword);
+                    System.out.println("✅ [Scheduler] Password change email sent to: " + payload.getEmail());
+
+                } else if (message.contains("reset their password")) {
+                    emailService.sendPasswordResetEmail(payload.getEmail(), payload.getUsername(), decryptedPassword);
+                    System.out.println("✅ [Scheduler] Password reset email sent to: " + payload.getEmail());
+
+                } else {
+                    emailService.sendCredentialsEmail(payload.getEmail(), payload.getUsername(), decryptedPassword);
+                    System.out.println("✅ [Scheduler] Account creation email sent to: " + payload.getEmail());
+                }
+
             } catch (Exception e) {
-                System.err.println("❌ Failed to email: " + payload.getEmail());
+                System.err.println("❌ [Scheduler] Failed to send email to: " + payload.getEmail());
                 e.printStackTrace();
             }
         }
     }
 }
-

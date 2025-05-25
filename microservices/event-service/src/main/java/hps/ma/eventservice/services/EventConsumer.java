@@ -10,8 +10,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
-import static org.apache.kafka.streams.kstream.EmitStrategy.log;
-
 @Service
 @RequiredArgsConstructor
 public class EventConsumer {
@@ -20,87 +18,75 @@ public class EventConsumer {
     private final EventRepository eventRepository;
     private final EmailBuffer emailBuffer;
 
+    // 🔵 Account Creation Event
     @KafkaListener(topics = "user.account.created", groupId = "event-service")
     public void onUserCreated(ConsumerRecord<String, String> record) {
         try {
             EventPayload payload = objectMapper.readValue(record.value(), EventPayload.class);
-
-            // Store metadata only
-            Event event = Event.builder()
-                    .message(payload.getMessage())
-                    .sentAt(payload.getSentAt())
-                    .senderType(payload.getSenderType())
-                    .senderId(payload.getSenderId())
-                    .recipientId(payload.getRecipientId())
-                    .category(payload.getCategory())
-                    .cardId(payload.getCardId())
-                    .isRead(false)
-                    .build();
-
-            eventRepository.save(event);
-
-            // Store credentials in memory (not DB)
-            if (payload.getEmail() != null && payload.getPassword() != null) {
-                emailBuffer.add(payload);
-            }
-
+            storeEvent(payload);            // Save to DB
+            handleAccountCreated(payload);  // Email logic
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("❌ Failed to process account.created event: " + e.getMessage());
         }
     }
 
-
-    @KafkaListener(topics = "user.security.updated",   groupId = "event-service")
-    public void handleSecurityCodeSet(String json) {
-        try {
-            EventPayload payload = objectMapper.readValue(json, EventPayload.class);
-
-            Event event = Event.builder()
-                    .message(payload.getMessage())
-                    .sentAt(payload.getSentAt())
-                    .senderType(payload.getSenderType())
-                    .category(payload.getCategory())
-                    .senderId(payload.getSenderId())
-                    .recipientId(payload.getRecipientId())  // one per agent
-                    .cardId(payload.getCardId())           // optional
-                    .isRead(false)
-                    .build();
-
-            eventRepository.save(event);
-        } catch (Exception e) {
-            log.error("❌ Failed to consume user.security.updated event", e);
-        }
-    }
-
-
+    // 🟡 Security Update Events (Password changed / reset)
     @KafkaListener(topics = "user.security.updated", groupId = "event-service")
-    public void handleSecurityEvents(String json) {
+    public void onSecurityEvent(String json) {
         try {
             EventPayload payload = objectMapper.readValue(json, EventPayload.class);
+            storeEvent(payload);
 
-            // Store event normally
-            Event event = Event.builder()
-                    .message(payload.getMessage())
-                    .sentAt(payload.getSentAt())
-                    .senderType(payload.getSenderType())
-                    .category(payload.getCategory())
-                    .senderId(payload.getSenderId())
-                    .recipientId(payload.getRecipientId())
-                    .cardId(payload.getCardId())
-                    .isRead(false)
-                    .build();
+            String message = payload.getMessage() != null ? payload.getMessage().toLowerCase() : "";
 
-            eventRepository.save(event);
-
-            // ✅ Custom handling: If it's a password change
-            if (payload.getMessage() != null && payload.getMessage().toLowerCase().contains("changed their password")) {
-                log.info("🔐 Password change event received for cardholder ID: " + payload.getSenderId());
-                // You can also notify security team, audit log, etc. here
+            if (message.contains("changed their password")) {
+                handlePasswordChanged(payload);
+            } else if (message.contains("reset their password")) {
+                handlePasswordReset(payload);
             }
 
         } catch (Exception e) {
-            log.error("❌ Failed to consume user.security.updated event", e);
+            System.err.println("❌ Failed to process security.updated event: " + e.getMessage());
         }
     }
 
+    // 🏷️ Store any event in DB
+    private void storeEvent(EventPayload payload) {
+        Event event = Event.builder()
+                .message(payload.getMessage())
+                .sentAt(payload.getSentAt())
+                .senderType(payload.getSenderType())
+                .senderId(payload.getSenderId())
+                .recipientId(payload.getRecipientId())
+                .category(payload.getCategory())
+                .cardId(payload.getCardId())
+                .isRead(false)
+                .build();
+
+        eventRepository.save(event);
+    }
+
+    // 📩 Handle Account Creation
+    private void handleAccountCreated(EventPayload payload) {
+        if (payload.getEmail() != null && payload.getPassword() != null) {
+            System.out.println("📬 Queued welcome email for: " + payload.getEmail());
+            emailBuffer.add(payload);
+        }
+    }
+
+    // 📬 Handle Password Change
+    private void handlePasswordChanged(EventPayload payload) {
+        if (payload.getEmail() != null && payload.getPassword() != null) {
+            System.out.println("📬 Queued password change email for: " + payload.getEmail());
+            emailBuffer.add(payload);
+        }
+    }
+
+    // 📮 Handle Password Reset
+    private void handlePasswordReset(EventPayload payload) {
+        if (payload.getEmail() != null && payload.getPassword() != null) {
+            System.out.println("📬 Queued password reset email for: " + payload.getEmail());
+            emailBuffer.add(payload);
+        }
+    }
 }
