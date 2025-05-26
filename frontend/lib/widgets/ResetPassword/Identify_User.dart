@@ -40,6 +40,7 @@ class _IdentifyUserScreenState extends State<IdentifyUserScreen> {
       showDialog(
         context: context,
         builder: (_) => OtpVerificationDialog(
+          username: input, // ✅ Fixes the error
           onConfirmed: (_) {
             Navigator.of(context).pop();
 
@@ -77,6 +78,7 @@ class _IdentifyUserScreenState extends State<IdentifyUserScreen> {
           },
         ),
       );
+
     } else {
       setState(() {
         _remainingAttempts--;

@@ -50,7 +50,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   bool isCardDeleted = false;
   bool deleteRequestSent = false;
   bool isRequestSent = false;
-
+  final String username = 'nada@example.com';
   final TextEditingController _cvvController = TextEditingController(
       text: '•••');
   final TextEditingController _pinController = TextEditingController(
@@ -2944,6 +2944,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                 context: context,
                                 barrierDismissible: false,
                                 builder: (_) => OtpVerificationDialog(
+                                  username: username, // ✅ You must pass this
                                   onConfirmed: (otp) {
                                     if (otp == "1111") {
                                       Navigator.pop(context);
@@ -2989,6 +2990,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                           ),
                         ),
                       ),
+
                     ],
                   ),
                 ],

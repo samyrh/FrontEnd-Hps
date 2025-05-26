@@ -47,7 +47,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
   bool isCardDeleted = false;
   bool isRequestSent = false;
   bool get isCardLocked => isRequestSent;
-
+  final String username = 'nada@example.com';
   final TextEditingController _cvvController = TextEditingController(
       text: '•••');
   final TextEditingController _pinController = TextEditingController(
@@ -570,19 +570,20 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                             ),
                             onPressed: () {
-                              Navigator.pop(context); // ✅ 1. First CLOSE the Delete Confirmation Dialog
-                              Future.delayed(const Duration(milliseconds: 150), () { // ✅ 2. Then AFTER a small delay show OTP cleanly
+                              Navigator.pop(context); // ✅ 1. Close the Delete Confirmation Dialog
+                              Future.delayed(const Duration(milliseconds: 150), () {
                                 showDialog(
                                   context: context,
                                   barrierDismissible: false,
                                   builder: (_) => OtpVerificationDialog(
+                                    username: username, // ✅ Required parameter
                                     onConfirmed: (otp) {
                                       if (otp == "1111") {
-                                        Navigator.pop(context); // ✅ Only close the OTP dialog
+                                        Navigator.pop(context); // ✅ Close OTP dialog
                                         Future.delayed(const Duration(milliseconds: 200), () {
                                           setState(() {
                                             isRequestSent = true; // ✅ Mark request as sent
-                                            // 🔥 Force RESET everything after delete request:
+                                            // 🔥 Reset card block states:
                                             blockReason = null;
                                             isBlocked = false;
                                             showRequestNewCvv = false;
@@ -607,7 +608,6 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                         );
                                       }
                                     },
-
                                   ),
                                 );
                               });

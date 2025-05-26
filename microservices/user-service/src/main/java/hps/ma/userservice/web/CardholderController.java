@@ -1,5 +1,7 @@
 package hps.ma.userservice.web;
 
+import hps.ma.userservice.batch.otp.OtpBatchJob;
+import hps.ma.userservice.batch.otp.OtpJobResult;
 import hps.ma.userservice.dao.entities.Cardholder;
 import hps.ma.userservice.dao.repositories.CardholderReository;
 import hps.ma.userservice.dto.change_password.ChangePasswordRequest;
@@ -24,6 +26,8 @@ public class CardholderController {
     private final CardholderService cardholderService;
     private final CardholderReository cardholderReository;
     private final PasswordEncoder passwordEncoder;
+    private final OtpBatchJob otpBatchJob;
+
 
     @PreAuthorize("hasRole('CARDHOLDER')")
     @PostMapping("/security-code")
@@ -81,15 +85,42 @@ public class CardholderController {
     public ResponseEntity<?> verifyUsername(@RequestBody Map<String, String> request) {
         String username = request.get("username");
 
-        boolean exists = cardholderReository.existsByUsername(username);
-
-        if (exists) {
-            return ResponseEntity.ok().build(); // ✅ 200 = valid
-        } else {
+        Optional<Cardholder> cardholderOpt = cardholderReository.findByUsername(username);
+        if (cardholderOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
         }
+
+        String email = cardholderOpt.get().getEmail();
+
+        // ✅ Send OTP via batch job
+        OtpJobResult result = otpBatchJob.execute(email);
+
+        return ResponseEntity.ok(result);
     }
 
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
+        String username = request.get("username");
+        String otp = request.get("otp");
 
+        Optional<Cardholder> cardholderOpt = cardholderReository.findByUsername(username);
+        if (cardholderOpt.isEmpty()) {
+            return ResponseEntity.status(404).body("User not found");
+        }
+
+        String email = cardholderOpt.get().getEmail();
+
+        // 🔍 Add debug logs
+        System.out.println("📨 Verifying OTP: " + otp + " for email: " + email);
+
+        OtpJobResult result = otpBatchJob.verify(email, otp);
+
+        System.out.println("🔍 Result: " + result);
+        System.out.println("✅ Success: " + result.isSuccess());
+
+        return result.isSuccess()
+                ? ResponseEntity.ok(result)
+                : ResponseEntity.status(401).body(result);
+    }
 
 }
