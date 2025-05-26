@@ -168,8 +168,15 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/reset_password',
       name: 'reset password',
-      pageBuilder: (context, state) =>
-          buildSlideTransitionPage(child: const ResetPasswordScreen(), state: state),
+      pageBuilder: (context, state) {
+        final data = state.extra as Map<String, dynamic>;
+        final username = data['username'] as String;
+
+        return buildSlideTransitionPage(
+          child: ResetPasswordScreen(username: username),
+          state: state,
+        );
+      },
     ),
 
     GoRoute(
