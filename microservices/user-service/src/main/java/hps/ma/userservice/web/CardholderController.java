@@ -123,4 +123,18 @@ public class CardholderController {
                 : ResponseEntity.status(401).body(result);
     }
 
+    @GetMapping("/internal/by-username/{username}")
+    public ResponseEntity<Map<String, Object>> getCardholderIdByUsername(@PathVariable String username) {
+        return cardholderReository.findByUsername(username)
+                .<ResponseEntity<Map<String, Object>>>map(cardholder ->
+                        ResponseEntity.ok(Map.of("id", cardholder.getId())))
+                .orElse(ResponseEntity.status(404).body(Map.of("error", "User not found")));
+    }
+
+
+
+
+
+
+
 }
