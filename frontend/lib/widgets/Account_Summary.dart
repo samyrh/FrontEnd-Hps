@@ -1,14 +1,23 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../dto/card_model.dart';
 
 class AccountSummary extends StatelessWidget {
-  const AccountSummary({super.key});
+  final CardModel card;
+
+  const AccountSummary({super.key, required this.card});
+
+  String formatAmount(double value) {
+    return value.toStringAsFixed(2).replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'), (match) => ' ',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // 📸 Banner with overlay text
+        // 📸 Banner with balance
         Stack(
           children: [
             ClipRRect(
@@ -27,8 +36,8 @@ class AccountSummary extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
+                  children: [
+                    const Text(
                       'Total Amount',
                       style: TextStyle(
                         fontSize: 14,
@@ -37,10 +46,10 @@ class AccountSummary extends StatelessWidget {
                         letterSpacing: 0.5,
                       ),
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     Text(
-                      '\$8,521.00',
-                      style: TextStyle(
+                      '${formatAmount(card.balance)} MAD',
+                      style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
@@ -53,135 +62,109 @@ class AccountSummary extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 16),
 
-        // 🟩 Summary Cards
+        // 🟩 Limit + Status
         Row(
           children: [
-            // 💰 Credit Limit
+            // 💰 Yearly Limit - Remaining
             Expanded(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.95, end: 1.0),
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeOutBack,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: child,
-                  );
-                },
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 100),
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(right: 6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFB4C9FF), Color(0xFF92AEE5)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 12,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Credit Limit',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white70,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        '\$271.00',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'USD',
-                        style: TextStyle(fontSize: 10, color: Colors.white54),
-                      ),
-                    ],
-                  ),
-                ),
+              child: _buildBox(
+                title: 'Yearly Limit',
+                value: '${formatAmount(card.annualLimit - card.balance)}',
+                sub: '/ ${formatAmount(card.annualLimit)} MAD',
+                gradient: const [Color(0xFFB4C9FF), Color(0xFF92AEE5)],
               ),
             ),
 
             // ✅ Card Status
             Expanded(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.95, end: 1.0),
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeOutBack,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: child,
-                  );
-                },
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 100),
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(left: 6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFA0CFA1), Color(0xFF78B48F)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 12,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Card Status',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white70,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        'Active',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              child: _buildBox(
+                title: 'Card Status',
+                value: card.status.toString().split('.').last.toUpperCase(),
+                sub: '',
+                gradient: _getStatusGradient(card.status),
               ),
             ),
           ],
         ),
+
       ],
+    );
+  }
+
+  List<Color> _getStatusGradient(String status) {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        return const [Color(0xFFA0CFA1), Color(0xFF78B48F)];
+      case 'BLOCKED':
+        return const [Color(0xFFF59E9E), Color(0xFFE06A6A)];
+      case 'CANCELED':
+        return const [Color(0xFFB0B0B0), Color(0xFF8A8A8A)];
+      default:
+        return const [Color(0xFFCCCCCC), Color(0xFF999999)];
+    }
+  }
+
+  Widget _buildBox({
+    required String title,
+    required String value,
+    required String sub,
+    required List<Color> gradient,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.95, end: 1.0),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOutBack,
+      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 100),
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Colors.white70,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+            if (sub.isNotEmpty)
+              Text(
+                sub,
+                style: const TextStyle(fontSize: 10, color: Colors.white54),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
