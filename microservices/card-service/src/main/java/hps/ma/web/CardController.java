@@ -5,6 +5,7 @@ import hps.ma.dao.enums.CardType;
 import hps.ma.dao.repositories.CardRepository;
 import hps.ma.dto.CardPackResponseDTO;
 import hps.ma.dto.CardResponseDTO;
+import hps.ma.dto.CardSecurityOptionsDTO;
 import hps.ma.feign_client.UserService;
 import hps.ma.services.CardholderInfoService;
 import hps.ma.services.JwtUtil;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/cards")
@@ -35,6 +36,10 @@ public class CardController {
 
         List<Card> cards = cardRepository.findByCardholderIdAndType(cardholderId, CardType.PHYSICAL);
 
+        // ✅ Extract the username and use it as cardholderName
+        Map<String, Object> userInfo = userServiceClient.getCardholderById(cardholderId);
+        String cardholderName = (String) userInfo.get("cardholderName"); // now uses username
+
         List<CardResponseDTO> response = cards.stream().map(card -> CardResponseDTO.builder()
                 .id(card.getId())
                 .cardNumber(card.getCardNumber())
@@ -45,10 +50,16 @@ public class CardController {
                 .contactlessEnabled(card.isContactlessEnabled())
                 .ecommerceEnabled(card.isEcommerceEnabled())
                 .tpeEnabled(card.isTpeEnabled())
-                .spendingLimit(card.getSpendingLimit())
-                .limitType(card.getLimitType())
+                .dailyLimit(card.getDailyLimit())
+                .monthlyLimit(card.getMonthlyLimit())
+                .annualLimit(card.getAnnualLimit())
+                .internationalWithdraw(card.isInternationalWithdraw())
                 .blockEndDate(card.getBlockEndDate())
                 .isCanceled(card.isCanceled())
+                .gradientStartColor(card.getGradientStartColor())
+                .gradientEndColor(card.getGradientEndColor())
+                .balance(card.getBalance())
+                .cardholderName(cardholderName)
                 .cardPack(CardPackResponseDTO.builder()
                         .label(card.getCardPack().getLabel())
                         .audience(card.getCardPack().getAudience())
@@ -62,13 +73,38 @@ public class CardController {
                         .maxDays(card.getCardPack().getMaxDays())
                         .type(card.getCardPack().getType())
                         .build())
-                .build()
-        ).toList();
+                .build()).toList();
 
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/security-options")
+    public ResponseEntity<?> getCardSecurityOptions(@RequestHeader("Authorization") String token) {
+        // 1. 🔐 Extract username from JWT
+        String username = jwtUtil.extractUsername(token);
 
+        // 2. 🆔 Get cardholder ID
+        Long cardholderId = cardholderInfoService.getCardholderIdByUsername(username);
+
+        // 3. 👤 Get user info (to extract cardholder name)
+        Map<String, Object> userInfo = userServiceClient.getCardholderById(cardholderId);
+        String cardholderName = (String) userInfo.get("cardholderName");
+
+        // 4. 📦 Fetch only PHYSICAL cards
+        List<Card> cards = cardRepository.findByCardholderIdAndType(cardholderId, CardType.PHYSICAL);
+
+        // 5. 🛡️ Build list of security options DTOs
+        List<CardSecurityOptionsDTO> options = cards.stream().map(card -> CardSecurityOptionsDTO.builder()
+                .label(card.getCardPack().getLabel())
+                .contactlessEnabled(card.isContactlessEnabled())
+                .ecommerceEnabled(card.isEcommerceEnabled())
+                .tpeEnabled(card.isTpeEnabled())
+                .username(username)
+                .cardholderName(cardholderName)
+                .build()
+        ).toList();
+
+        return ResponseEntity.ok(options);
+    }
 
 }
-
