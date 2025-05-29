@@ -9,6 +9,9 @@ import java.util.Map;
 @FeignClient(name = "user-service", url = "http://localhost:9999/api/cardholders")
 public interface UserService {
 
+    @GetMapping("/internal/by-id/{id}")
+    Map<String, Object> getCardholderById(@PathVariable("id") Long id);
+
     @GetMapping("/internal/by-username/{username}")
     Map<String, Object> getCardholderIdByUsername(@PathVariable("username") String username);
 }
