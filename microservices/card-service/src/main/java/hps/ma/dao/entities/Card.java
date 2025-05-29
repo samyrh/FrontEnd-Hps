@@ -5,7 +5,6 @@ import hps.ma.dao.enums.CardStatus;
 import hps.ma.dao.enums.CardType;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.util.Date;
 
 @Entity
@@ -39,14 +38,20 @@ public class Card {
     private String pin;
 
     private boolean contactlessEnabled;
-
     private boolean ecommerceEnabled;
-
     private boolean tpeEnabled;
 
-    private double spendingLimit;
+    @Column(name = "daily_limit")
+    private double dailyLimit;
 
-    private String limitType;
+    @Column(name = "monthly_limit")
+    private double monthlyLimit;
+
+    @Column(name = "annual_limit")
+    private double annualLimit;
+
+    @Column(name = "international_withdraw")
+    private boolean internationalWithdraw;
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date blockEndDate;
@@ -59,7 +64,15 @@ public class Card {
     @Column(name = "manager_id")
     private Long managerId;
 
+    @Column(name = "gradient_start_color")
+    private String gradientStartColor;
+
+    @Column(name = "gradient_end_color")
+    private String gradientEndColor;
+
+    @Column(name = "balance") // or "solde" if you prefer
+    private double balance;
+
     @ManyToOne
     private CardPack cardPack;
-
 }
