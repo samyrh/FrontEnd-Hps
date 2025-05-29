@@ -412,16 +412,16 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
               const SizedBox(height: 20),
 
               // 📇 Card Scroller
-              CardScroller(
-                onCardChanged: (label) {
-                  setState(() {
-                    selectedPackLabel = label;
-                    selectedCountriesPerPack.putIfAbsent(label, () => []);
-                    startDatesPerPack.putIfAbsent(label, () => null);
-                    endDatesPerPack.putIfAbsent(label, () => null);
-                  });
-                },
-              ),
+             // CardScroller(
+              //  onCardChanged: (label) {
+                //  setState(() {
+                  //  selectedPackLabel = label;
+                  //  selectedCountriesPerPack.putIfAbsent(label, () => []);
+                   // startDatesPerPack.putIfAbsent(label, () => null);
+                  //  endDatesPerPack.putIfAbsent(label, () => null);
+                //  });
+              //  },
+            //  ),
 
               if (selectedPackLabel != null) ...[
                 const SizedBox(height: 32),
@@ -507,9 +507,16 @@ class _TravelPlanScreenState extends State<TravelPlanScreen> {
     super.initState();
 
     final now = DateTime.now();
-    cleanNow = DateTime(now.year, now.month, now.day); // 👈 today at 00:00
-    maxDate = cleanNow.add(const Duration(days: 90));  // 👈 max range from today
+    cleanNow = DateTime(now.year, now.month, now.day);
+    maxDate = cleanNow.add(const Duration(days: 90));
+
+    // 👇 Simulate static selection
+    selectedPackLabel = 'Visa Gold'; // or any other like 'Visa Youth'
+    selectedCountriesPerPack.putIfAbsent(selectedPackLabel!, () => []);
+    startDatesPerPack.putIfAbsent(selectedPackLabel!, () => null);
+    endDatesPerPack.putIfAbsent(selectedPackLabel!, () => null);
   }
+
   void showError(BuildContext context, String message) {
     showCupertinoDialog(
       context: context,
