@@ -18,9 +18,15 @@ public record CardResponseDTO(
         boolean contactlessEnabled,
         boolean ecommerceEnabled,
         boolean tpeEnabled,
-        double spendingLimit,
-        String limitType,
+        double dailyLimit,
+        double monthlyLimit,
+        double annualLimit,
+        boolean internationalWithdraw,
         Date blockEndDate,
         boolean isCanceled,
+        String gradientStartColor,
+        String gradientEndColor,
+        double balance,
+        String cardholderName,
         CardPackResponseDTO cardPack
 ) {}
