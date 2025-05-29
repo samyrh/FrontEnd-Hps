@@ -2,6 +2,9 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../dto/CardSecurityOptionsModel.dart';
+import '../dto/card_model.dart';
+import '../services/card_service/CardSecurityService.dart';
 import '../widgets/Alerts_Home.dart';
 import '../widgets/Home_Header.dart';
 import '../widgets/Card_Scroller.dart';
@@ -31,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, bool> contactlessMap = {};
   Map<String, bool> ecommerceMap = {};
   Map<String, bool> tpeMap = {};
+  CardModel? _selectedCard;
+  List<CardSecurityOptionsModel> _securityOptions = [];
 
 
   final ScrollController _scrollController = ScrollController();
@@ -94,21 +99,39 @@ class _HomeScreenState extends State<HomeScreen> {
                     duration: const Duration(milliseconds: 100),
                     curve: Curves.easeOut,
                     child:CardScroller(
-                      onCardChanged: (label) {
-                        setState(() {
-                          selectedCardLabel = label;
-                          _initCardSettings(label);
-                        });
-                      },
-                      onCardTap: (label) {
-                        // 🔎 Check if it's a physical card (customize this check based on your labels)
-                        final isPhysicalCard = label.toLowerCase().contains('visa') || label.toLowerCase().contains('physical');
+                        onCardChanged: (card) async {
+                          setState(() {
+                            selectedCardLabel = card.cardPack.label;
+                            _selectedCard = card;
+                          });
+
+                          await _loadSecurityOptions(); // 👈 Fetch fresh data when card changes
+
+                          final option = _securityOptions.firstWhere(
+                                (opt) => opt.label == card.cardPack.label,
+                            orElse: () => CardSecurityOptionsModel(
+                              label: card.cardPack.label,
+                              contactlessEnabled: true,
+                              ecommerceEnabled: true,
+                              tpeEnabled: true,
+                              username: '',
+                              cardholderName: '',
+                            ),
+                          );
+
+                          setState(() {
+                            contactlessMap[card.cardPack.label] = option.contactlessEnabled;
+                            ecommerceMap[card.cardPack.label] = option.ecommerceEnabled;
+                            tpeMap[card.cardPack.label] = option.tpeEnabled;
+                          });
+                        },
+                        onCardTap: (card) {
+                        final isPhysicalCard = card.type.toLowerCase().contains('physical') ||
+                            card.cardPack.label.toLowerCase().contains('visa');
 
                         if (isPhysicalCard) {
-                          // 1️⃣ Navigate to the physical card details screen
                           context.push('/physical_card_details');
 
-                          // 2️⃣ Show a toast
                           showCupertinoGlassToast(
                             context,
                             'You can now manage your Physical Card here.',
@@ -118,19 +141,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       },
                     ),
+
                   ),
 
                   const SizedBox(height: 16),
 
-                  // 📊 Account Summary
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: AccountSummary(),
-                  ),
+                  if (_selectedCard != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: AccountSummary(card: _selectedCard!),
+                    ),
+
 
                   const SizedBox(height: 24),
 
-                  // 🔒 Payment Security Toggles (iOS-style)
+// 🔒 Payment Security Toggles (iOS-style)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
@@ -150,10 +175,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.nfc,
                           label: "Contactless Payments",
                           value: contactlessMap[selectedCardLabel] ?? true,
-                          onChanged: (val) {
-                            setState(() {
-                              contactlessMap[selectedCardLabel] = val;
-                            });
+                          onChanged: (val) async {
+                            final service = SecurityOptionsService();
+                            await service.updateCardSecurityOption(
+                              label: selectedCardLabel,
+                              contactlessEnabled: val,
+                            );
+                            await _refreshCurrentCardSecurityOptions();
                           },
                         ),
 
@@ -163,10 +191,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.shopping_cart_outlined,
                           label: "E-Commerce Payments",
                           value: ecommerceMap[selectedCardLabel] ?? true,
-                          onChanged: (val) {
-                            setState(() {
-                              ecommerceMap[selectedCardLabel] = val;
-                            });
+                          onChanged: (val) async {
+                            final service = SecurityOptionsService();
+                            await service.updateCardSecurityOption(
+                              label: selectedCardLabel,
+                              ecommerceEnabled: val,
+                            );
+                            await _refreshCurrentCardSecurityOptions();
                           },
                         ),
 
@@ -176,10 +207,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.point_of_sale_outlined,
                           label: "TPE Payments",
                           value: tpeMap[selectedCardLabel] ?? true,
-                          onChanged: (val) {
-                            setState(() {
-                              tpeMap[selectedCardLabel] = val;
-                            });
+                          onChanged: (val) async {
+                            final service = SecurityOptionsService();
+                            await service.updateCardSecurityOption(
+                              label: selectedCardLabel,
+                              tpeEnabled: val,
+                            );
+                            await _refreshCurrentCardSecurityOptions();
                           },
                         ),
 
@@ -187,10 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         GestureDetector(
                           onTap: () {
-                            // ✅ Navigate using GoRouter & pass a flag
                             context.push('/physical_card_details', extra: {'autoScroll': true});
-
-                            // ✅ Show a toast after navigating
                             Future.delayed(const Duration(milliseconds: 300), () {
                               showCupertinoGlassToast(
                                 context,
@@ -337,10 +368,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   @override
-  void initState() {
-    super.initState();
-    _initCardSettings("Visa Youth");
+  Future<void> _loadSecurityOptions() async {
+    final service = SecurityOptionsService();
+    try {
+      final options = await service.fetchCardSecurityOptions();
+      setState(() {
+        _securityOptions = options;
+        for (var opt in options) {
+          contactlessMap[opt.label] = opt.contactlessEnabled;
+          ecommerceMap[opt.label] = opt.ecommerceEnabled;
+          tpeMap[opt.label] = opt.tpeEnabled;
+        }
+      });
+    } catch (e) {
+      print("❌ Failed to load security options: $e");
+    }
   }
+
   String _getTimeBasedGreeting() {
     final hour = DateTime.now().hour;
 
@@ -384,11 +428,43 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _initCardSettings(String label) {
-    contactlessMap.putIfAbsent(label, () => true);
-    ecommerceMap.putIfAbsent(label, () => true);
-    tpeMap.putIfAbsent(label, () => true);
+
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshCurrentCardSecurityOptions();
+    });
   }
 
+
+  Future<void> _refreshCurrentCardSecurityOptions() async {
+    final service = SecurityOptionsService();
+    try {
+      final options = await service.fetchCardSecurityOptions();
+      final label = selectedCardLabel;
+
+      final current = options.firstWhere(
+            (e) => e.label == label,
+        orElse: () => CardSecurityOptionsModel(
+          label: label,
+          contactlessEnabled: true,
+          ecommerceEnabled: true,
+          tpeEnabled: true,
+          username: '',
+          cardholderName: '',
+        ),
+      );
+
+      setState(() {
+        contactlessMap[label] = current.contactlessEnabled;
+        ecommerceMap[label] = current.ecommerceEnabled;
+        tpeMap[label] = current.tpeEnabled;
+      });
+    } catch (e) {
+      print("❌ Failed to refresh toggles: $e");
+    }
+  }
 
 }
