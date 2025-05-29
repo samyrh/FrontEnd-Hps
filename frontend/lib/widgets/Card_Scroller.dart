@@ -4,8 +4,8 @@ import '../../dto/card_model.dart';
 import '../services/card_service/card_service.dart';
 
 class CardScroller extends StatefulWidget {
-  final Function(String selectedPackLabel)? onCardChanged;
-  final Function(String selectedPackLabel)? onCardTap;
+  final Function(CardModel selectedCard)? onCardChanged;
+  final Function(CardModel selectedCard)? onCardTap;
 
   const CardScroller({
     super.key,
@@ -18,9 +18,8 @@ class CardScroller extends StatefulWidget {
 }
 
 class _CardScrollerState extends State<CardScroller> {
-  final PageController _pageController =
-  PageController(viewportFraction: 0.75, initialPage: 1000);
-  int _currentPage = 1000;
+  final PageController _pageController = PageController(viewportFraction: 0.75, initialPage: 10000);
+  int _currentPage = 0;
 
   final CardService _cardService = CardService();
   List<CardModel> _cards = [];
@@ -31,10 +30,11 @@ class _CardScrollerState extends State<CardScroller> {
     _loadCards();
 
     _pageController.addListener(() {
-      final index = _pageController.page?.round() ?? 0;
-      if (_currentPage != index && _cards.isNotEmpty) {
+      if (_cards.isEmpty) return;
+      final index = (_pageController.page?.round() ?? 0) % _cards.length;
+      if (_currentPage != index) {
         setState(() => _currentPage = index);
-        widget.onCardChanged?.call(_cards[index % _cards.length].cardPack.label);
+        widget.onCardChanged?.call(_cards[index]);
       }
     });
   }
@@ -43,36 +43,17 @@ class _CardScrollerState extends State<CardScroller> {
     try {
       final cards = await _cardService.fetchPhysicalCards();
       setState(() => _cards = cards);
-
-      final label = _cards[_currentPage % _cards.length].cardPack.label;
-      widget.onCardChanged?.call(label);
+      if (_cards.isNotEmpty) {
+        widget.onCardChanged?.call(_cards[0]);
+      }
     } catch (e) {
       print('❌ Failed to load cards: $e');
     }
   }
 
-  int get visibleIndex => _currentPage % (_cards.isEmpty ? 1 : _cards.length);
-
-  Widget _buildCard(int index) {
-    if (_cards.isEmpty) return const SizedBox();
-
-    final card = _cards[index % _cards.length];
-    final isFocused = index == _currentPage;
-
-    return GestureDetector(
-      onTap: () {
-        widget.onCardTap?.call(card.cardPack.label);
-      },
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: isFocused ? 0.9 : 0.9, end: isFocused ? 1.0 : 0.9),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        builder: (context, scale, child) {
-          return Transform.scale(scale: scale, child: child);
-        },
-        child: _buildCardContainer(card),
-      ),
-    );
+  Color hexToColor(String hex) {
+    hex = hex.replaceFirst('#', '');
+    return Color(int.parse('FF$hex', radix: 16));
   }
 
   Widget _buildCardContainer(CardModel card) {
@@ -86,7 +67,10 @@ class _CardScrollerState extends State<CardScroller> {
         height: 180,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF00C6FB), Color(0xFF005BEA)],
+            colors: [
+              hexToColor(card.gradientStartColor),
+              hexToColor(card.gradientEndColor),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -101,24 +85,41 @@ class _CardScrollerState extends State<CardScroller> {
               children: [
                 Text(
                   card.cardPack.label,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
-                const Image(image: AssetImage('assets/visa_logo.png'), width: 50, height: 50),
+                const Image(
+                  image: AssetImage('assets/visa_logo.png'),
+                  width: 50,
+                  height: 50,
+                ),
               ],
             ),
             Text(
-              card.cardNumber.substring(0, 12), // e.g., '1234 5678 9012'
-              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: 2.5),
+              card.cardNumber
+                  ?.replaceAll(RegExp(r'[^0-9]'), '')
+                  .replaceAllMapped(RegExp(r".{4}"), (match) => "${match.group(0)} ")
+                  .trim() ??
+                  '**** **** ****',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2.5,
+              ),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('CARDHOLDER', style: TextStyle(fontSize: 10, color: Colors.white54)),
-                    SizedBox(height: 2),
-                    Text('Nada S. Rhandor', style: TextStyle(fontSize: 13, color: Colors.white)),
+                    const Text('CARDHOLDER', style: TextStyle(fontSize: 10, color: Colors.white54)),
+                    const SizedBox(height: 2),
+                    Text(card.cardholderName, style: const TextStyle(fontSize: 13, color: Colors.white)),
                   ],
                 ),
                 Column(
@@ -127,7 +128,7 @@ class _CardScrollerState extends State<CardScroller> {
                     const Text('EXPIRES', style: TextStyle(fontSize: 10, color: Colors.white54)),
                     const SizedBox(height: 2),
                     Text(
-                      card.expirationDate.split('T').first, // Format if ISO
+                      card.expirationDate.split('T').first,
                       style: const TextStyle(fontSize: 13, color: Colors.white),
                     ),
                   ],
@@ -140,8 +141,24 @@ class _CardScrollerState extends State<CardScroller> {
     );
   }
 
+  Widget _buildCard(int index) {
+    if (_cards.isEmpty) return const SizedBox();
+    final realIndex = index % _cards.length;
+    final card = _cards[realIndex];
+    final isFocused = realIndex == _currentPage;
+
+    return GestureDetector(
+      onTap: () => widget.onCardTap?.call(card),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 1.0, end: isFocused ? 1.0 : 0.9),
+        duration: const Duration(milliseconds: 300),
+        builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+        child: _buildCardContainer(card),
+      ),
+    );
+  }
+
   Widget _buildPageIndicator() {
-    final total = _cards.length;
     return Container(
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -159,8 +176,8 @@ class _CardScrollerState extends State<CardScroller> {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: List.generate(total, (index) {
-          final isActive = index == visibleIndex;
+        children: List.generate(_cards.length, (index) {
+          final isActive = index == _currentPage;
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             margin: const EdgeInsets.symmetric(horizontal: 5),
