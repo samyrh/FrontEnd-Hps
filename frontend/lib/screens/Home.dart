@@ -17,7 +17,7 @@ import 'package:go_router/go_router.dart';
 
 
 // hello
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatefulWidget with WidgetsBindingObserver{
   const HomeScreen({super.key});
 
   @override
@@ -155,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 24),
 
-// 🔒 Payment Security Toggles (iOS-style)
+
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
@@ -175,14 +175,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.nfc,
                           label: "Contactless Payments",
                           value: contactlessMap[selectedCardLabel] ?? true,
-                          onChanged: (val) async {
-                            final service = SecurityOptionsService();
-                            await service.updateCardSecurityOption(
-                              label: selectedCardLabel,
-                              contactlessEnabled: val,
-                            );
-                            await _refreshCurrentCardSecurityOptions();
-                          },
+                            onChanged: (_) async {
+                              await _refreshCurrentCardSecurityOptions();
+                            }
+
                         ),
 
                         const SizedBox(height: 12),
@@ -191,14 +187,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.shopping_cart_outlined,
                           label: "E-Commerce Payments",
                           value: ecommerceMap[selectedCardLabel] ?? true,
-                          onChanged: (val) async {
-                            final service = SecurityOptionsService();
-                            await service.updateCardSecurityOption(
-                              label: selectedCardLabel,
-                              ecommerceEnabled: val,
-                            );
-                            await _refreshCurrentCardSecurityOptions();
-                          },
+                            onChanged: (_) async {
+                              await _refreshCurrentCardSecurityOptions();
+                            }
+
                         ),
 
                         const SizedBox(height: 12),
@@ -207,14 +199,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.point_of_sale_outlined,
                           label: "TPE Payments",
                           value: tpeMap[selectedCardLabel] ?? true,
-                          onChanged: (val) async {
-                            final service = SecurityOptionsService();
-                            await service.updateCardSecurityOption(
-                              label: selectedCardLabel,
-                              tpeEnabled: val,
-                            );
-                            await _refreshCurrentCardSecurityOptions();
-                          },
+                            onChanged: (_) async {
+                              await _refreshCurrentCardSecurityOptions();
+                            }
                         ),
 
                         const SizedBox(height: 20),
@@ -436,6 +423,20 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshCurrentCardSecurityOptions();
     });
+    WidgetsBinding.instance.addObserver(this as WidgetsBindingObserver);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this as WidgetsBindingObserver);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshCurrentCardSecurityOptions(); // refresh values from backend
+    }
   }
 
 
