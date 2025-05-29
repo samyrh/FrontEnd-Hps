@@ -34,7 +34,7 @@ class CardPackModel {
       limitAnnual: (json['limitAnnual'] as num).toDouble(),
       limitDaily: (json['limitDaily'] as num).toDouble(),
       limitMonthly: (json['limitMonthly'] as num).toDouble(),
-      internationalWithdraw: json['internationalWithdraw'],
+      internationalWithdraw: json['internationalWithdraw'] ?? false,
       maxCountries: json['maxCountries'],
       maxDays: json['maxDays'],
       type: json['type'],
