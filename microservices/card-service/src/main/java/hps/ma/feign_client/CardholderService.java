@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import java.util.Map;
 
 @FeignClient(name = "user-service", url = "http://localhost:9999/api/cardholders")
-public interface UserService {
+public interface CardholderService {
 
     @GetMapping("/internal/by-id/{id}")
     Map<String, Object> getCardholderById(@PathVariable("id") Long id);

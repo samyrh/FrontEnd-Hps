@@ -97,6 +97,7 @@ final GoRouter appRouter = GoRouter(
       pageBuilder: (context, state) =>
           buildSlideTransitionPage(child: const HomeScreen(), state: state),
     ),
+
     GoRoute(
       path: '/notifications',
       name: 'notifications',
