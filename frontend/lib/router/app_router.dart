@@ -21,6 +21,7 @@ import '../screens/ProfileScreen.dart';
 import '../screens/SecurityCodeSetUp.dart';
 import '../screens/SecurityCodeVerificationScreen.dart';
 import '../screens/Settings.dart';
+import '../screens/SuccessScreen.dart';
 import '../screens/TravelPlanScreen.dart';
 import '../screens/VirtualCardDetailsScreen.dart';
 import '../screens/cards_screen.dart';
@@ -88,9 +89,19 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/virtual_card_details',
       name: 'virtual_card_details',
-      pageBuilder: (context, state) =>
-          buildSlideTransitionPage(child: const VirtualCardDetailsScreen(), state: state),
+      pageBuilder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+
+        final cardId = extra?['id']?.toString(); // ✅ Safe casting
+
+        return buildSlideTransitionPage(
+          child: VirtualCardDetailsScreen(cardId: cardId),
+          state: state,
+        );
+      },
     ),
+
+
     GoRoute(
       path: '/home',
       name: 'home',
@@ -109,14 +120,20 @@ final GoRouter appRouter = GoRouter(
       name: 'physical card details',
       pageBuilder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
+
+        // ✅ This ensures we cast safely, regardless of whether it's int or string
+        final cardId = extra?['id']?.toString();
+
         return buildSlideTransitionPage(
           child: PhysicalCardDetailsScreen(
-            autoScroll: extra?['autoScroll'] == true, // ✅ pass it here
+            autoScroll: extra?['autoScroll'] == true,
+            cardId: cardId,
           ),
           state: state,
         );
       },
     ),
+
     GoRoute(
       path: '/transactions',
       name: 'transactions',
@@ -250,6 +267,17 @@ final GoRouter appRouter = GoRouter(
       name: 'change password',
       pageBuilder: (context, state) =>
           buildSlideTransitionPage(child: const ChangePasswordScreen(), state: state),
+    ),
+    GoRoute(
+      path: '/success',
+      name: 'success',
+      builder: (context, state) {
+        final extras = state.extra as Map<String, dynamic>?;
+        return SuccessScreen(
+          cardType: extras?['cardType'] ?? '',
+          packName: extras?['packName'] ?? '',
+        );
+      },
     ),
 
 
