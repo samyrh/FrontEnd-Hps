@@ -1,6 +1,7 @@
 import 'card_pack_model.dart';
 
 class CardModel {
+
   final int id;
   final String cardNumber;
   final String type;
