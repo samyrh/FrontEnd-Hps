@@ -2,6 +2,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../dto/card_dto/card_request_dto.dart';
+import '../services/card_service/card_service.dart';
+import '../widgets/Toast.dart';
 import 'SuccessScreen.dart';
 
 class ChooseCardColorScreen extends StatefulWidget {
@@ -372,16 +375,38 @@ class _ChooseCardColorScreenState extends State<ChooseCardColorScreen>
                     ),
                     elevation: 6,
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SuccessScreen(
-                          cardType: cardType,
-                          packName: packName,
-                        ),
-                      ),
+                  onPressed: () async {
+                    final gradient = selectedGradient as LinearGradient;
+
+                    final startColor = '#${gradient.colors.first.value.toRadixString(16).substring(2)}';
+                    final endColor = '#${gradient.colors.last.value.toRadixString(16).substring(2)}';
+
+                    final dto = CardRequestDTO(
+                      cardPackLabel: packName,
+                      type: cardType.contains('Virtual') ? 'VIRTUAL' : 'PHYSICAL',
+                      gradientStartColor: startColor,
+                      gradientEndColor: endColor,
                     );
+
+                    try {
+                      final success = await CardService().requestNewCard(dto);
+
+                      if (!mounted) return;
+
+                      if (success) {
+                        context.pushReplacement(
+                          '/success',
+                          extra: {
+                            'cardType': cardType,
+                            'packName': packName,
+                          },
+                        );
+                      } else {
+                        showCupertinoGlassToast(context, "Failed to request new card.", isSuccess: false);
+                      }
+                    } catch (e) {
+                      showCupertinoGlassToast(context, "Something went wrong: $e", isSuccess: false);
+                    }
                   },
                   child: const Text(
                     'Confirm',
