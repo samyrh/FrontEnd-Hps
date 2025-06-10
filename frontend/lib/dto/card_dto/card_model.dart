@@ -1,7 +1,6 @@
 import 'card_pack_model.dart';
 
 class CardModel {
-
   final int id;
   final String cardNumber;
   final String type;
@@ -22,13 +21,15 @@ class CardModel {
   final String gradientEndColor;
   final double balance;
   final String cardholderName;
+  final String? cvv;  // Newly added
+  final String? pin;  // Newly added
 
   CardModel({
     required this.id,
     required this.cardNumber,
     required this.type,
     required this.status,
-    required this.blockReason,
+    this.blockReason,
     required this.expirationDate,
     required this.contactlessEnabled,
     required this.ecommerceEnabled,
@@ -37,13 +38,15 @@ class CardModel {
     required this.monthlyLimit,
     required this.annualLimit,
     required this.internationalWithdraw,
-    required this.blockEndDate,
+    this.blockEndDate,
     required this.isCanceled,
     required this.cardPack,
     required this.gradientStartColor,
     required this.gradientEndColor,
     required this.balance,
     required this.cardholderName,
+    this.cvv,  // Newly added
+    this.pin,  // Newly added
   });
 
   factory CardModel.fromJson(Map<String, dynamic> json) {
@@ -68,6 +71,8 @@ class CardModel {
       gradientEndColor: json['gradientEndColor'] ?? '#000000',
       balance: (json['balance'] as num).toDouble(),
       cardholderName: json['cardholderName'] ?? 'Cardholder',
+      cvv: json['cvv'],  // Newly added
+      pin: json['pin'],  // Newly added
     );
   }
 }
