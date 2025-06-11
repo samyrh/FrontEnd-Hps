@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import '../dto/CardSecurityOptionsModel.dart';
-import '../dto/card_model.dart';
+import '../dto/card_dto/CardSecurityOptionsModel.dart';
+import '../dto/card_dto/UpdateSecurityOptionRequest.dart';
+import '../dto/card_dto/card_model.dart';
 import '../services/card_service/CardSecurityService.dart';
 import '../widgets/Alerts_Home.dart';
 import '../widgets/Home_Header.dart';
@@ -16,15 +18,14 @@ import '../widgets/Toast.dart';
 import 'package:go_router/go_router.dart';
 
 
-// hello
-class HomeScreen extends StatefulWidget with WidgetsBindingObserver{
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver   {
   int currentIndex = 0;
   bool isContactlessEnabled = true;
   bool isEcommerceEnabled = true;
@@ -36,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, bool> tpeMap = {};
   CardModel? _selectedCard;
   List<CardSecurityOptionsModel> _securityOptions = [];
+  Timer? _securityRefreshTimer;
 
 
   final ScrollController _scrollController = ScrollController();
@@ -175,33 +177,57 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.nfc,
                           label: "Contactless Payments",
                           value: contactlessMap[selectedCardLabel] ?? true,
-                            onChanged: (_) async {
-                              await _refreshCurrentCardSecurityOptions();
-                            }
+                          onChanged: (val) async {
+                            if (_selectedCard == null) return;
 
+                            final service = SecurityOptionsService();
+                            await service.updateCardSecurityOptions(
+                              UpdateSecurityOptionRequest(
+                                cardId: _selectedCard!.id,
+                                contactlessEnabled: val,
+                              ),
+                            );
+                            await _refreshCurrentCardSecurityOptions(selectedCardLabel);
+                          },
                         ),
 
-                        const SizedBox(height: 12),
 
+                        const SizedBox(height: 12),
                         _buildPaymentToggleRow(
                           icon: Icons.shopping_cart_outlined,
                           label: "E-Commerce Payments",
                           value: ecommerceMap[selectedCardLabel] ?? true,
-                            onChanged: (_) async {
-                              await _refreshCurrentCardSecurityOptions();
-                            }
+                          onChanged: (val) async {
+                            if (_selectedCard == null) return;
 
+                            final service = SecurityOptionsService();
+                            await service.updateCardSecurityOptions(
+                              UpdateSecurityOptionRequest(
+                                cardId: _selectedCard!.id,
+                                ecommerceEnabled: val,
+                              ),
+                            );
+                            await _refreshCurrentCardSecurityOptions(selectedCardLabel);
+                          },
                         ),
 
                         const SizedBox(height: 12),
-
                         _buildPaymentToggleRow(
                           icon: Icons.point_of_sale_outlined,
                           label: "TPE Payments",
                           value: tpeMap[selectedCardLabel] ?? true,
-                            onChanged: (_) async {
-                              await _refreshCurrentCardSecurityOptions();
-                            }
+                          onChanged: (val) async {
+                            if (_selectedCard == null) return;
+
+                            final service = SecurityOptionsService();
+                            await service.updateCardSecurityOptions(
+                              UpdateSecurityOptionRequest(
+                                cardId: _selectedCard!.id,
+                                tpeEnabled: val,
+                              ),
+                            );
+                            await _refreshCurrentCardSecurityOptions(selectedCardLabel);
+                          },
                         ),
 
                         const SizedBox(height: 20),
@@ -384,15 +410,22 @@ class _HomeScreenState extends State<HomeScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
+    final currentPath = GoRouterState.of(context).uri.toString();
+
+    // 🔄 Refresh toggle state only when on the '/home' route
+    if (currentPath == '/home') {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _refreshCurrentCardSecurityOptions(selectedCardLabel);
+      });
+    }
+
+    // 🎉 Show welcome toast once
     final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
 
-    // ✅ Welcome Greeting Based on Time
     if (!_hasShownWelcomeToast && extra?['showWelcome'] == true) {
       _hasShownWelcomeToast = true;
-
       Future.delayed(const Duration(milliseconds: 500), () {
         final greeting = _getTimeBasedGreeting();
-
         showCupertinoGlassToast(
           context,
           "$greeting\nWelcome back!",
@@ -402,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
 
-    // ✅ Post-Password-Change Toast (with delay)
+    // 📢 Optional toast (e.g., password change confirmation)
     if (extra?['showToast'] == true && extra?['toastMessage'] != null) {
       Future.delayed(const Duration(milliseconds: 1100), () {
         showCupertinoGlassToast(
@@ -415,22 +448,28 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-
-
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshCurrentCardSecurityOptions();
     });
-    WidgetsBinding.instance.addObserver(this as WidgetsBindingObserver);
-  }
 
+    // ✅ Start auto-refresh every 5 seconds
+    _securityRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      _refreshCurrentCardSecurityOptions();
+    });
+
+    WidgetsBinding.instance.addObserver(this);
+  }
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this as WidgetsBindingObserver);
+    _securityRefreshTimer?.cancel(); // ✅ Stop the refresh loop
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
+
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -440,16 +479,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  Future<void> _refreshCurrentCardSecurityOptions() async {
+  Future<void> _refreshCurrentCardSecurityOptions([String? label]) async {
     final service = SecurityOptionsService();
     try {
+      final cardLabel = label ?? selectedCardLabel;
+
+      print("🔄 Refreshing security options for: $cardLabel");
+
       final options = await service.fetchCardSecurityOptions();
-      final label = selectedCardLabel;
+
+      for (var opt in options) {
+        print("🔍 Found: ${opt.label} => contactless: ${opt.contactlessEnabled}, ecommerce: ${opt.ecommerceEnabled}, tpe: ${opt.tpeEnabled}");
+      }
 
       final current = options.firstWhere(
-            (e) => e.label == label,
+            (e) => e.label == cardLabel,
         orElse: () => CardSecurityOptionsModel(
-          label: label,
+          label: cardLabel,
           contactlessEnabled: true,
           ecommerceEnabled: true,
           tpeEnabled: true,
@@ -459,10 +505,13 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       setState(() {
-        contactlessMap[label] = current.contactlessEnabled;
-        ecommerceMap[label] = current.ecommerceEnabled;
-        tpeMap[label] = current.tpeEnabled;
+        contactlessMap[cardLabel] = current.contactlessEnabled;
+        ecommerceMap[cardLabel] = current.ecommerceEnabled;
+        tpeMap[cardLabel] = current.tpeEnabled;
       });
+
+      print("✅ Updated local maps: contactless=${contactlessMap[cardLabel]}, ecommerce=${ecommerceMap[cardLabel]}, tpe=${tpeMap[cardLabel]}");
+
     } catch (e) {
       print("❌ Failed to refresh toggles: $e");
     }
