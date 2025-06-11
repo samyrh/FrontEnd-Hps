@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:hps_direct/services/auth/auth_service.dart';
 import '../widgets/CustomDropdown.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/cupertino.dart';
@@ -85,7 +86,12 @@ class _AddNewCardState extends State<AddNewCard> {
 
   final ScrollController _scrollController = ScrollController();
   double selectedLimit = 500;
-
+  String? fullName;
+  String? email;
+  bool isEditing = false;
+  final fullNameController = TextEditingController();
+  final emailController = TextEditingController();
+  final phoneController = TextEditingController(text: "+212790123456");
 
   final List<DropdownItem> cardTypes = [
     DropdownItem(label: 'Physical Card', icon: Icons.credit_card),
@@ -617,12 +623,12 @@ class _AddNewCardState extends State<AddNewCard> {
 
   Widget buildLabeledField(String label, Widget child) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
             child: Text(
               label,
               style: const TextStyle(
@@ -632,28 +638,51 @@ class _AddNewCardState extends State<AddNewCard> {
               ),
             ),
           ),
-          child,
+          SizedBox(
+            width: double.infinity, // ✅ force full width
+            child: child,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildInput(String label, String value, IconData icon) {
+  Widget _buildInput(String label, TextEditingController controller, IconData icon) {
     return buildLabeledField(
       label,
-      TextFormField(
-        initialValue: value,
-        enabled: false,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: Colors.grey.shade700, size: 20),
-          filled: true,
-          fillColor: const Color(0xFFE5E5EA),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-          disabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFFD1D1D6)),
+      Container(
+        height: 58,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE6E6E9), // Matches dropdown background
+          borderRadius: BorderRadius.circular(14), // Matches slight rounding
+          border: Border.all(
+            color: const Color(0xFFCCCCCC), // Soft light border (like dropdown)
+            width: 1,
           ),
+        ),
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Icon(icon, size: 20, color: const Color(0xFF555555)), // Subtle icon
+            ),
+            Expanded(
+              child: TextFormField(
+                controller: controller,
+                enabled: false,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 18),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -663,12 +692,15 @@ class _AddNewCardState extends State<AddNewCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInput("Full Name", "Nada S. Rhandor", Icons.person),
-        _buildInput("Phone Number", "+212790123456", Icons.phone),
-        _buildInput("Email Address", "samiNada@gmail.com", Icons.email),
+        _buildInput("Full Name", fullNameController, Icons.person),
+        _buildInput("Phone Number", phoneController, Icons.phone),
+        _buildInput("Email Address", emailController, Icons.email),
       ],
     );
   }
+
+
+
 
   Widget _buildDropdown({
     required String label,
@@ -703,12 +735,13 @@ class _AddNewCardState extends State<AddNewCard> {
     final topPadding = MediaQuery.of(context).padding.top;
     final screenWidth = size.width;
 
+    // Inside build() > return Scaffold(
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // 🎨 Background
+          // 🎨 Background Gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -723,180 +756,200 @@ class _AddNewCardState extends State<AddNewCard> {
             ),
           ),
 
-          // 🧊 Frosted Glass Blur
+          // 🧊 Blur Layer
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 200, sigmaY: 200),
-            child: Container(
-              color: Colors.white.withOpacity(0.08),
-            ),
+            child: Container(color: Colors.white.withOpacity(0.08)),
           ),
 
-          // 📜 Content
-          Padding(
-            padding: EdgeInsets.only(top: topPadding + kToolbarHeight + 16, bottom: 20),
-            child: Column(
-              children: [
-                // ✅ Big Image (Fixed Size)
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.08),
-                  child: SizedBox(
-                    height: screenWidth > 400 ? 200 : 180,  // ✨ Stays big
-                    width: double.infinity,
-                    child: Image.asset(
-                      'assets/add_card.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
+          // 🧭 Content with Padding
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = constraints.maxWidth;
+                final screenHeight = constraints.maxHeight;
 
-                const SizedBox(height: 16),
-
-                // ✅ Middle Part Flexible (shrinks first if needed)
-                Flexible(
-                  child: SingleChildScrollView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: Column(
-                      children: [
-                        _buildInfoSection(),
-
-                        _buildDropdown(
-                          label: "Card Type",
-                          selected: selectedCardType,
-                          items: cardTypes,
-                          onChanged: (value) {
-                            setState(() {
-                              selectedCardType = value;
-                              selectedCardColor = null; // ✅ reset selected pack
-                            });
-                          },
-                          icon: Icons.credit_card,
-                        ),
-                        _buildDropdown(
-                          label: "Pack of Card",
-                          selected: selectedCardColor,
-                          items: selectedCardType == null
-                              ? []  // Empty list if no type selected
-                              : (selectedCardType!.label == 'Physical Card' ? physicalCardPacks : virtualCardPacks),
-                          onChanged: (value) {
-                            if (selectedCardType == null) {
-                              // Should never happen, but extra security
-                              showCupertinoGlassToast(
-                                context,
-                                "Please select a card type first before choosing the card pack.",
-                                isSuccess: false,
-                                position: ToastPosition.top,
-                              );
-                            } else {
-                              setState(() => selectedCardColor = value);
-
-                              if (selectedCardType!.label == 'Physical Card') {
-                                final selectedSpec = physicalCardSpecsPacks[value!.label]!;
-                                _showPhysicalCardPackDetails(selectedSpec);
-                              } else if (selectedCardType!.label == 'Virtual Card') {
-                                final selectedSpec = virtualCardSpecsPacks[value!.label]!;
-                                _showVirtualCardPackDetails(selectedSpec);
-                              }
-                            }
-                          },
-                          icon: Icons.card_membership,
-                          enabled: selectedCardType != null, // ✅ DISABLE if CardType is null
-                        ),
-
-
-
-
-
-                      ],
-                    ),
-                  ),
-                ),
-
-                // ✅ Continue Button
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06, vertical: 10),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: (selectedCardColor == null || selectedCardType == null)
-                          ? null
-                          : () {
-                        // ✅ Navigate to ChooseCardColorScreen
-                        final gradients = selectedCardType!.label == 'Physical Card'
-                            ? physicalCardColors[selectedCardColor!.label]!
-                            : virtualCardColors[selectedCardColor!.label]!;
-
-                        context.push(
-                          '/choose_color',
-                          extra: {
-                            'gradients': gradients,
-                            'cardType': selectedCardType!.label,
-                            'packName': selectedCardColor!.label,
-                          },
-                        );
-
-                        showCupertinoGlassToast(
-                          context,
-                          'Awesome! Now choose your card color 🎨.',
-                          isSuccess: true,
-                          position: ToastPosition.top,
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        elevation: 6,
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      // 🧭 AppBar Row
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => context.pop(), // or context.go('/menu') if needed
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.chevron_left, color: Colors.black, size: 28),
+                            ),
+                          ),
+                          const Expanded(
+                            child: Center(
+                              child: Text(
+                                'Add New Card',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                  color: Colors.black,
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 44), // Spacer to balance the row
+                        ],
                       ),
-                      child: Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontSize: screenWidth > 400 ? 16 : 14.5,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.3,
+
+                      const SizedBox(height: 12),
+
+                      // 📸 Image
+                      SizedBox(
+                        height: screenHeight * 0.2,
+                        child: Image.asset(
+                          'assets/add_card.png',
+                          fit: BoxFit.contain,
+                          width: double.infinity,
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
 
-          // 🧭 Header
-          Positioned(
-            top: topPadding,
-            left: 0,
-            right: 0,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  const BackButton(color: Colors.black),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Add New Card',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.2,
-                          color: Colors.black,
-                          fontFamily: 'Inter',
+                      const SizedBox(height: 8),
+
+                      // 📄 Form (fills remaining space)
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          child: Column(
+                            children: [
+                              _buildInfoSection(),
+
+                              _buildDropdown(
+                                label: "Card Type",
+                                selected: selectedCardType,
+                                items: cardTypes,
+                                onChanged: (value) {
+                                  setState(() {
+                                    selectedCardType = value;
+                                    selectedCardColor = null;
+                                  });
+                                },
+                                icon: Icons.credit_card,
+                              ),
+
+                              _buildDropdown(
+                                label: "Pack of Card",
+                                selected: selectedCardColor,
+                                items: selectedCardType == null
+                                    ? []
+                                    : (selectedCardType!.label == 'Physical Card'
+                                    ? physicalCardPacks
+                                    : virtualCardPacks),
+                                onChanged: (value) {
+                                  if (selectedCardType == null) return;
+
+                                  setState(() => selectedCardColor = value);
+
+                                  if (selectedCardType!.label == 'Physical Card') {
+                                    final spec = physicalCardSpecsPacks[value!.label]!;
+                                    _showPhysicalCardPackDetails(spec);
+                                  } else {
+                                    final spec = virtualCardSpecsPacks[value!.label]!;
+                                    _showVirtualCardPackDetails(spec);
+                                  }
+                                },
+                                icon: Icons.card_membership,
+                                enabled: selectedCardType != null,
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // ✅ Continue Button
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: (selectedCardColor == null || selectedCardType == null)
+                                      ? null
+                                      : () {
+                                    final gradients = selectedCardType!.label == 'Physical Card'
+                                        ? physicalCardColors[selectedCardColor!.label]!
+                                        : virtualCardColors[selectedCardColor!.label]!;
+
+                                    context.push(
+                                      '/choose_color',
+                                      extra: {
+                                        'gradients': gradients,
+                                        'cardType': selectedCardType!.label,
+                                        'packName': selectedCardColor!.label,
+                                      },
+                                    );
+
+                                    showCupertinoGlassToast(
+                                      context,
+                                      'Awesome! Now choose your card color 🎨.',
+                                      isSuccess: true,
+                                      position: ToastPosition.top,
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                    elevation: 6,
+                                  ),
+                                  child: Text(
+                                    'Continue',
+                                    style: TextStyle(
+                                      fontSize: screenWidth > 400 ? 16 : 14.5,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 48),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
       ),
     );
+
+  }
+  @override
+  void initState() {
+    super.initState();
+    _loadUserInfo();
   }
 
+
+  Future<void> _loadUserInfo() async {
+    final authService = AuthService();
+    final userInfo = await authService.loadUserInfo();
+
+    if (userInfo != null) {
+      fullNameController.text = userInfo.username;
+      emailController.text = userInfo.email;
+    }
+  }
 }
