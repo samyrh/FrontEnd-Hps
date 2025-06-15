@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../dto/card_model.dart';
+import '../dto/card_dto/card_model.dart';
 import '../services/card_service/card_service.dart';
 
 class CardScroller extends StatefulWidget {
@@ -159,6 +159,8 @@ class _CardScrollerState extends State<CardScroller> {
   }
 
   Widget _buildPageIndicator() {
+    const int visibleDots = 6;
+
     return Container(
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -176,15 +178,20 @@ class _CardScrollerState extends State<CardScroller> {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: List.generate(_cards.length, (index) {
-          final isActive = index == _currentPage;
+        children: List.generate(visibleDots, (i) {
+          int adjustedIndex = (_currentPage % visibleDots);
+
+          final isActive = i == adjustedIndex;
+
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             margin: const EdgeInsets.symmetric(horizontal: 5),
             width: isActive ? 24 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: isActive ? const Color(0xFF1C1C1E) : const Color(0xFF3C3C43).withOpacity(0.3),
+              color: isActive
+                  ? const Color(0xFF1C1C1E)
+                  : const Color(0xFF3C3C43).withOpacity(0.3),
               borderRadius: BorderRadius.circular(50),
             ),
           );
