@@ -21,8 +21,9 @@ class CardModel {
   final String gradientEndColor;
   final double balance;
   final String cardholderName;
-  final String? cvv;  // Newly added
-  final String? pin;  // Newly added
+  final String? cvv;
+  final String? pin;
+  final bool? replacementRequested;
 
   CardModel({
     required this.id,
@@ -45,8 +46,9 @@ class CardModel {
     required this.gradientEndColor,
     required this.balance,
     required this.cardholderName,
-    this.cvv,  // Newly added
-    this.pin,  // Newly added
+    this.cvv,
+    this.pin,
+    this.replacementRequested,
   });
 
   factory CardModel.fromJson(Map<String, dynamic> json) {
@@ -71,8 +73,9 @@ class CardModel {
       gradientEndColor: json['gradientEndColor'] ?? '#000000',
       balance: (json['balance'] as num).toDouble(),
       cardholderName: json['cardholderName'] ?? 'Cardholder',
-      cvv: json['cvv'],  // Newly added
-      pin: json['pin'],  // Newly added
+      cvv: json['cvv'],
+      pin: json['pin'],
+      replacementRequested: json['replacementRequested'],
     );
   }
 }
