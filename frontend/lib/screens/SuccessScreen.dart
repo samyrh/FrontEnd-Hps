@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'PhysicalCardDetailsScreen.dart';
 import 'VirtualCardDetailsScreen.dart';
@@ -83,11 +84,8 @@ class SuccessScreen extends StatelessWidget {
                         ),
                         onPressed: onBackToHome ??
                                 () {
-                              Navigator.popUntil(
-                                context,
-                                    (route) => route.isFirst,
-                              );
-                            },
+                                  context.go('/home');
+                                },
                         child: const Text(
                           'Back to Home',
                           style: TextStyle(
