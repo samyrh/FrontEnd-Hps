@@ -4,10 +4,27 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../dto/card_dto/BlockVirtualCardRequest.dart';
+import '../dto/card_dto/ReplaceVirtualCardRequest.dart';
+import '../dto/card_dto/UpdateSecurityOptionRequest.dart';
+import '../dto/card_dto/VirtualSecurityOption.dart';
+import '../dto/card_dto/card_model.dart';
+import '../services/VirtualCardOtpService/VirtualCardOtpService.dart';
+import '../services/auth/auth_service.dart';
+import '../services/card_service/CardSecurityService.dart';
+import '../services/card_service/card_service.dart';
 import '../widgets/CustomDropdown.dart';
 import '../widgets/OtpVerificationDialog.dart';
 import '../widgets/Toast.dart';
 import '../widgets/UltraSwitch.dart';
+import '../widgets/VirtualCard/cardholder_info_section.dart';
+import '../widgets/VirtualCard/delete_card_section.dart';
+import '../widgets/VirtualCard/ecommerce_toggle.dart';
+import '../widgets/VirtualCard/flippable_card.dart';
+import '../widgets/VirtualCard/online_limit_section.dart';
+import '../widgets/VirtualCard/pin_popup.dart';
+import '../widgets/VirtualCard/section_title.dart';
+
 
 //test
 class AlwaysDisabledFocusNode extends FocusNode {
@@ -16,11 +33,14 @@ class AlwaysDisabledFocusNode extends FocusNode {
 }
 
 class VirtualCardDetailsScreen extends StatefulWidget {
-  const VirtualCardDetailsScreen({Key? key}) : super(key: key);
+  final String? cardId; // <-- Accept cardId from route
+
+  const VirtualCardDetailsScreen({Key? key, this.cardId}) : super(key: key);
 
   @override
   State<VirtualCardDetailsScreen> createState() => _VirtualCardDetailsScreenState();
 }
+
 
 class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
     with SingleTickerProviderStateMixin {
@@ -31,7 +51,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
   int countdown = 5;
   bool isCvvRevealed = false;
   bool isContactlessEnabled = true;
-  bool isEcommerceEnabled = true;
+  bool? isEcommerceEnabled;
   bool isTpePaymentEnabled = true;
   DateTime? blockStartDate;
   DateTime? blockEndDate;
@@ -41,118 +61,171 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
   bool isJustBlockNowConfirmed = false;
   int cvvCountdown = 60;
   Timer? _cvvTimer;
+  Timer? _autoFlipTimer;
   bool someoneTriedConfirmed = false;
   bool requestSent = false;
   bool isAccountClosureConfirmed = false;
   bool isCardDeleted = false;
   bool isRequestSent = false;
+  bool isFlippedByCvv = false;
+  bool isBackByTap = false;
   bool get isCardLocked => isRequestSent;
-  final String username = 'nada@example.com';
   final TextEditingController _cvvController = TextEditingController(
       text: '•••');
   final TextEditingController _pinController = TextEditingController(
       text: '••••');
-
   DropdownItem? selectedLimitType;
   DropdownItem? blockReason;
-
-  final ScrollController _scrollController = ScrollController(); // << ADDED
-
+  final ScrollController _scrollController = ScrollController();
   Timer? _reasonResetTimer;
-
-
+  bool isCardCancelled = false;
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  double selectedLimit = 500;
+  bool isBlocked = false;
   final List<DropdownItem> blockReasons = [
     DropdownItem(label: 'Just Block for Now (Temporary)', icon: Icons.timelapse),
     DropdownItem(label: 'My Card Details Got Leaked (CVV)', icon: Icons.security),
     DropdownItem(label: 'Someone Tried to Use My Card', icon: Icons.warning_amber_rounded),
-    DropdownItem(label: 'I’m Closing My Account or Switching', icon: Icons.logout),
+    DropdownItem(label: "I'm Closing My Account or Switching", icon: Icons.logout),
   ];
-
-
-  double selectedLimit = 500;
-  bool isBlocked = false;
-
-
   final Map<String, double> maxLimitByType = {
     'Online Purchase Limit (Per Year)': 5000, // or whatever you want as max
   };
-
-
   final Gradient cardGradient = const LinearGradient(
     colors: [Color(0xFFB6FBFF), Color(0xFF83A4D4)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+  bool _pendingRevealCvv = false;
+  CardModel? _cardModel;
+  bool isLoading = true;
 
+  // --- New for security options ---
+  List<VirtualSecurityOption> _securityOptions = [];
+  bool isSecurityOptionsLoading = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _animation = Tween<double>(begin: 0, end: pi).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
+  Timer? _ecommerceStatusTimer;
+  Timer? _cardStatusTimer;
+  bool isPendingReasonSelection = false;
+
+  final Map<String, String> blockReasonBackendValues = {
+    'Just Block for Now (Temporary)': 'JUST_BLOCK_TEMPORARY',
+    'My Card Details Got Leaked (CVV)': 'CVV_LEAK',
+    'Someone Tried to Use My Card': 'FRAUD_SUSPECTED',
+    "I'm Closing My Account or Switching": 'CLOSING_ACCOUNT',
+  };
+
+  Future<void> _loadSecurityOptions() async {
+    try {
+      final options = await SecurityOptionsService().fetchVirtualCardSecurityOptions();
+      if (!mounted) return;
+      setState(() {
+        _securityOptions = options;
+        isSecurityOptionsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => isSecurityOptionsLoading = false);
+    }
   }
+  VirtualSecurityOption? get currentSecurityOption {
+    if (_cardModel == null) return null;
+    try {
+      return _securityOptions.firstWhere(
+            (opt) =>
+        opt.label == _cardModel!.cardPack.label &&
+            opt.cardholderName == _cardModel!.cardholderName,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+  void _flipCard({bool? forceFront, bool byTap = true}) {
+    if (isCardCancelled) {
+      showCupertinoGlassToast(context, "This card is cancelled and cannot be flipped.", isSuccess: false, position: ToastPosition.top);
+      return;
+    }
 
-  void _flipCard() {
     if (isBlocked) {
       showCupertinoGlassToast(
         context,
-        "Card is blocked. Cannot flip to reveal details.",
+        "Card is blocked. Cannot flip.",
         isSuccess: false,
         position: ToastPosition.top,
       );
+      return;
+    }
+
+    if (forceFront != null) {
+      if (!forceFront && !isFront) {
+        _controller.reverse();
+        setState(() => isFront = true);
+      } else if (forceFront && isFront) {
+        _controller.forward();
+        setState(() => isFront = false);
+      }
       return;
     }
 
     if (isFront) {
       _controller.forward();
+      setState(() {
+        isFront = false;
+        isBackByTap = byTap; // <-- Only set true if byTap
+      });
+      if (byTap) {
+        _autoFlipTimer?.cancel();
+        _autoFlipTimer = Timer(const Duration(seconds: 5), () {
+          setState(() {
+            isFront = true;
+            isBackByTap = false;
+          });
+          _controller.reverse();
+        });
+      }
     } else {
       _controller.reverse();
-    }
-    setState(() => isFront = !isFront);
-  }
-
-  void _revealCVV() {
-    if (isBlocked) {
-      showCupertinoGlassToast(
-        context,
-        "Card is blocked. CVV cannot be revealed.",
-        isSuccess: false,
-        position: ToastPosition.top,
-      );
-      return;
-    }
-
-    if (isCvvRevealed) {
-      _cvvController.text = '•••';
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (!isFront) _flipCard();
+      setState(() {
+        isFront = true;
+        isBackByTap = false;
       });
-      setState(() => isCvvRevealed = false);
+      _autoFlipTimer?.cancel();
+    }
+  }
+  Future<void> _revealCVV() async {
+    if (_cardModel == null || isCvvRevealed) return;
+
+    _autoFlipTimer?.cancel();
+
+    if (isFront) {
+      _pendingRevealCvv = true;
+      _flipCard(byTap: false);
+      isFlippedByCvv = true;
+      // Don't set isCvvRevealed yet!
     } else {
-      _cvvController.text = '527';
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (isFront) _flipCard();
-      });
-      setState(() => isCvvRevealed = true);
+      // Only proceed if the CVV is about to be shown as numbers
+      if (_cardModel!.cvv != null && _cardModel!.cvv != '•••') {
+        setState(() {
+          _cvvController.text = _cardModel!.cvv!;
+          isCvvRevealed = true;
+          isBackByTap = false;
+          isFlippedByCvv = false;
+        });
+        _startAutoHideCvv();
 
-      Timer(const Duration(seconds: 5), () {
-        if (mounted && isCvvRevealed) {
-          _cvvController.text = '•••';
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (!isFront) _flipCard();
-          });
-          setState(() => isCvvRevealed = false);
-        }
-      });
+        // Notify backend that CVV was viewed
+        await CardService().viewVirtualCardCVV(_cardModel!.id.toString());
+      } else {
+        showCupertinoGlassToast(
+          context,
+          "CVV is not available.",
+          isSuccess: false,
+          position: ToastPosition.top,
+        );
+      }
     }
   }
-
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollController.animateTo(
@@ -162,554 +235,306 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
       );
     });
   }
+  @override
+  void initState() {
+    super.initState();
 
-  Widget _buildInput(String label, TextEditingController controller,
-      IconData icon,
-      {bool isObscured = false, VoidCallback? onTapSuffix, IconData? suffixIcon}) {
-    return buildLabeledField(
-      label,
-      TextField(
-        controller: controller,
-        readOnly: true,
-        obscureText: isObscured,
-        focusNode: AlwaysDisabledFocusNode(),
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
-        ),
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: Colors.grey.shade700, size: 20),
-          filled: true,
-          fillColor: const Color(0xFFE5E5EA),
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 18),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFFD1D1D6)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20),
-            borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.5),
-          ),
-          suffixIcon: onTapSuffix != null
-              ? GestureDetector(
-            onTap: onTapSuffix,
-            child: Icon(
-              suffixIcon ?? Icons.remove_red_eye_outlined,
-              color: Colors.grey.shade700,
-            ),
-          )
-              : null,
-        ),
-      ),
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
     );
+
+    _animation = Tween<double>(begin: 0, end: pi).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
+    );
+
+    _controller.addStatusListener((status) async {
+      if (status == AnimationStatus.completed && _pendingRevealCvv) {
+        setState(() {
+          isCvvRevealed = true;
+          isBackByTap = false;
+          _pendingRevealCvv = false;
+        });
+        _startAutoHideCvv();
+
+        if (_cardModel != null && _cardModel!.cvv != null && _cardModel!.cvv != '•••') {
+          await CardService().viewVirtualCardCVV(_cardModel!.id.toString());
+        }
+      }
+    });
+
+    // Load card data first
+    _loadCard().then((_) {
+      _startCardStatusPolling(); // Start polling after initial load
+    });
+
+    _loadUserInfo();
+    _loadSecurityOptions();
+    _startEcommerceStatusPolling();
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF1C1C1E),
-        ),
-      ),
-    );
+  void _startAutoHideCvv() {
+    _autoFlipTimer = Timer(const Duration(seconds: 5), () {
+      setState(() {
+        isCvvRevealed = false;
+        if (isFlippedByCvv) {
+          _flipCard();
+        }
+        isFlippedByCvv = false;
+      });
+    });
+  }
+  Future<void> _loadUserInfo() async {
+    final info = await AuthService().loadUserInfo();
+    if (info != null) {
+      if (!mounted) return;
+      setState(() {
+        _usernameController.text = info.username ?? 'Unknown';
+        _emailController.text = info.email ?? 'Unknown';
+      });
+    }
+  }
+  Future<void> _loadCard() async {
+    try {
+      final card = await CardService().fetchCardById(widget.cardId!);
+      if (!mounted) return;
+      setState(() {
+        _cardModel = card;
+        selectedLimit = card.annualLimit;
+        _syncBlockingState();  // ✅ call it only once inside setState
+      });
+
+      await _fetchEcommerceStatus();
+
+      // ✅ Optional debug logs
+      print("✅ Loaded Card:");
+      print("• Cardholder: ${card.cardholderName}");
+      print("• Card Number: ${card.cardNumber}");
+      print("• Expiry Date: ${card.expirationDate}");
+      print("• Gradient: ${card.gradientStartColor} → ${card.gradientEndColor}");
+      print("• Balance: ${card.balance}");
+      print("• Pack: ${card.cardPack.label}");
+      print("• Status: ${card.status}");
+      print("• Block Reason: ${card.blockReason}");
+
+    } catch (e) {
+      if (!mounted) return;
+      print("❌ Failed to load card: $e");
+      showCupertinoGlassToast(context, "Failed to load card data", isSuccess: false);
+    } finally {
+      if (!mounted) return;
+      setState(() => isLoading = false);
+    }
   }
 
-  Widget _buildInfoSection() {
-    final cardNumber = '1234 5678 9012 3456';
-    final maskedCardNumber = isRequestSent
-        ? '**** **** *** ${cardNumber.substring(cardNumber.length - 3)}'
-        : cardNumber;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle("Cardholder Info"),
-        _buildInput(
-          "Name",
-          TextEditingController(text: "Nada S. Rhandor"),
-          Icons.person,
-        ),
-        _buildInput(
-          "Card Number",
-          TextEditingController(text: maskedCardNumber),
-          Icons.credit_card,
-        ),
-
-        if (!isRequestSent) // ✅ Only show Expiry and CVV if request NOT sent
-          _buildInput(
-            "Expiry Date",
-            TextEditingController(text: '08/26'),
-            Icons.calendar_today,
-          ),
-
-        if (!isRequestSent)
-          _buildInput(
-            "CVV",
-            _cvvController,
-            Icons.lock_outline,
-            isObscured: false,
-            onTapSuffix: _revealCVV,
-            suffixIcon: isCvvRevealed
-                ? Icons.visibility_off_outlined
-                : Icons.remove_red_eye_outlined,
-          ),
-      ],
-    );
-  }
-
-  Widget _buildLimitSection() {
-    final double maxLimit = 5000; // Max online limit per year
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle("Online Purchase Limit (Per Year)"),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-          child: Opacity(opacity: (isBlocked || isCardLocked) ? 0.4 : 1,
-            child: IgnorePointer(
-              ignoring: (isBlocked || isCardLocked),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF2F2F7),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFD1D1D6)),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Set Your Limit",
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1C1C1E),
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 350),
-                              transitionBuilder: (child, animation) {
-                                return SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(0.0, 0.2),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: FadeTransition(opacity: animation, child: child),
-                                );
-                              },
-                              child: Text(
-                                "\$${(isBlocked ? 0 : selectedLimit).toInt()}",
-                                key: ValueKey<int>((isBlocked ? 0 : selectedLimit).toInt()),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: _limitColor(selectedLimit),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.info_outline, size: 13, color: Colors.grey),
-                                const SizedBox(width: 4),
-                                Text(
-                                  "Annual Cap: \$${maxLimit.toInt()}",
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 4,
-                        activeTrackColor: const Color(0xFF007AFF), // iOS blue
-                        inactiveTrackColor: const Color(0xFFCED0D4), // iOS-style dark grey
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
-                        overlayShape: SliderComponentShape.noOverlay,
-                        thumbColor: const Color(0xFF007AFF), // same as active track
-                        trackShape: const RoundedRectSliderTrackShape(),
-                      ),
-                      child: Slider(
-                        value: selectedLimit.clamp(0, maxLimit),
-                        min: 0,
-                        max: maxLimit,
-                        onChanged: (val) {
-                          setState(() => selectedLimit = val.clamp(0, maxLimit));
-                        },
-                      ),
-                    ),
-                    _buildAvailableLimitMessage(
-                      isBlocked ? 0 : selectedLimit,
-                      maxLimit,
-                    ),
-                  ],
-                ),
+  Future<bool> _showUnblockConfirmation({required String title, required String message}) async {
+    bool result = false;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_amber_rounded, size: 40, color: Colors.redAccent),
+              const SizedBox(height: 16),
+              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
               ),
-            ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFFD1D1D6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        result = false;
+                      },
+                      child: const Text("Cancel", style: TextStyle(color: Colors.black)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        result = true;
+                      },
+                      child: const Text("Confirm", style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
+    return result;
   }
-
-  void _showDeleteConfirmationDialog({String? reason}) {
-    showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (_) => Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.85),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+  Widget buildDeleteConfirmationDialog() {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 🗑️ Icon
-                    Container(
-                      width: 92,
-                      height: 92,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFE8E8), Color(0xFFFFCCCC)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.redAccent.withOpacity(0.2),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.delete_forever_rounded, size: 48, color: Colors.redAccent),
-                      ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 92,
+                  height: 92,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFE8E8), Color(0xFFFFCCCC)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    const SizedBox(height: 22),
-
-                    // 📝 Title
-                    const Text(
-                      "Delete Card?",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1C1E),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      "This action is irreversible. Once deleted, the card will be removed from your account and disabled permanently.",
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        height: 1.55,
-                        color: Color(0xFF3C3C43),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-
-                    // 💳 Card Info
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF9F9FB),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFD1D1D6)),
-                      ),
-                      child: Column(
-                        children: const [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text("Cardholder", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                              Text("Nada S. Rhandor", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                            ],
-                          ),
-                          SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text("Card Number", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                              Text("•••• •••• •••• 345", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                            ],
-                          ),
-                          SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text("Card Type", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                              Text("Visa", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                            ],
-                          ),
-                          SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text("Expires", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF6E6E73))),
-                              Text("08/26", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    if (reason != null) ...[
-                      const SizedBox(height: 18),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFFF0F0), Color(0xFFFFE5E5)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Color(0xFFFFA0A0), width: 1.2),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 38),
-                            const SizedBox(height: 6),
-                            RichText(
-                              textAlign: TextAlign.center,
-                              text: TextSpan(
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.45,
-                                  color: Color(0xFFB00020),
-                                ),
-                                children: [
-                                  const TextSpan(text: "Selected reason: "),
-                                  TextSpan(
-                                    text: "\"$reason\".\n",
-                                    style: const TextStyle(fontWeight: FontWeight.w700),
-                                  ),
-                                  const TextSpan(text: "Are you sure you want to delete this card?"),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.redAccent.withOpacity(0.2),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
                     ],
-
-                    const SizedBox(height: 24),
-
-                    // 🧭 Action Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              backgroundColor: const Color(0xFFD1D1D6),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text(
-                              "Cancel",
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.delete_forever_rounded, size: 48, color: Colors.redAccent),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Text("Delete Card?", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1C1C1E)), textAlign: TextAlign.center),
+                const SizedBox(height: 14),
+                const Text(
+                  "This action is irreversible. Once deleted, the card will be removed from your account and disabled permanently.",
+                  style: TextStyle(fontSize: 14.5, height: 1.55, color: Color(0xFF3C3C43)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFFD1D1D6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              backgroundColor: Colors.redAccent,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                            onPressed: () {
-                              Navigator.pop(context); // ✅ 1. Close the Delete Confirmation Dialog
-                              Future.delayed(const Duration(milliseconds: 150), () {
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (_) => OtpVerificationDialog(
-                                    username: username, // ✅ Required parameter
-                                    onConfirmed: (otp) {
-                                      if (otp == "1111") {
-                                        Navigator.pop(context); // ✅ Close OTP dialog
-                                        Future.delayed(const Duration(milliseconds: 200), () {
-                                          setState(() {
-                                            isRequestSent = true; // ✅ Mark request as sent
-                                            // 🔥 Reset card block states:
-                                            blockReason = null;
-                                            isBlocked = false;
-                                            showRequestNewCvv = false;
-                                            showRequestCard = false;
-                                            someoneTriedConfirmed = false;
-                                            isJustBlockNowConfirmed = false;
-                                            isAccountClosureConfirmed = false;
-                                          });
-                                          showCupertinoGlassToast(
-                                            context,
-                                            "Request sent. Your card deletion is being processed.",
-                                            isSuccess: true,
-                                            position: ToastPosition.top,
-                                          );
-                                        });
-                                      } else {
-                                        showCupertinoGlassToast(
-                                          context,
-                                          "Incorrect code.",
-                                          isSuccess: false,
-                                          position: ToastPosition.top,
-                                        );
-                                      }
-                                    },
-                                  ),
-                                );
-                              });
-                            },
-                            child: const Text(
-                              "Delete",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text("Cancel", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                      ],
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text("Delete", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ),
-          ),
-        )
-    );
-  }
-
-  Widget _buildAvailableLimitMessage(double selected, double max) {
-    final double remaining = max - selected;
-    final double percentUsed = selected / max;
-
-    IconData icon;
-    Color color;
-    String message;
-
-    if (percentUsed >= 1.0) {
-      icon = Icons.block;
-      color = Colors.redAccent;
-      message = "Limit Reached";
-    } else if (percentUsed >= 0.7) {
-      icon = Icons.warning_amber_rounded;
-      color = Colors.orangeAccent;
-      message = "Almost Reached – \$${remaining.toInt()} left";
-    } else {
-      icon = Icons.check_circle;
-      color = Colors.green;
-      message = "Available: \$${remaining.toInt()}";
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Center(
-        child: Container(
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withOpacity(0.4),
-                color.withOpacity(0.07),
               ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: color.withOpacity(0.25)),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                    letterSpacing: 0.3,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
       ),
     );
   }
 
-  Color _limitColor(double value) {
-    if (value <= 1000) return const Color(0xFF34C759);
-    if (value <= 3000) return const Color(0xFFFF9500);
-    return const Color(0xFFFF3B30);
+  void _initiateCardDeletion() async {
+    final username = _usernameController.text;
+
+    // 🔐 1. Generate OTP via VirtualCardOtpService
+    final otpGenerated = await VirtualCardOtpService.generateOtp(username: username);
+    if (!otpGenerated) {
+      showCupertinoGlassToast(
+        context,
+        "Failed to generate OTP ❌",
+        isSuccess: false,
+        position: ToastPosition.top,
+      );
+      return;
+    }
+
+    // 🔐 2. Show OTP Dialog (auto-verification handled inside)
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => OtpVerificationDialog(
+        username: username,
+        isVirtualCardOtp: true,  // ✅ very important flag here
+        onConfirmed: (otp) async {
+          // OTP is already verified when we reach here
+
+          Navigator.pop(context);  // close OTP dialog
+
+          // 🔐 3. Ask final confirmation before cancelling card
+          final confirmed = await showDialog<bool>(
+            context: context,
+            barrierDismissible: true,
+            builder: (_) => buildDeleteConfirmationDialog(),
+          );
+
+          if (confirmed == true) {
+            try {
+              await CardService().cancelVirtualCard(_cardModel!.id.toString());
+
+              // 🔄 Small delay to let backend update status fully
+              await Future.delayed(const Duration(seconds: 1));
+
+              // 🔄 Refresh again after backend fully applied cancel status
+              await _loadCard();
+
+              setState(() {
+                isCardCancelled = true;
+              });
+
+              _cardStatusTimer?.cancel();
+
+              showCupertinoGlassToast(context, "Virtual card cancelled ✅", isSuccess: true);
+            } catch (e) {
+              showCupertinoGlassToast(context, "Failed to cancel card ❌", isSuccess: false);
+            }
+          }
+
+        },
+      ),
+    );
   }
 
   Widget _buildBlockCardSection() {
@@ -719,7 +544,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle("Block Card"),
+        const SectionTitle(title: "Block Card"),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
           child: Container(
@@ -744,18 +569,6 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                   value: isBlocked,
                   onChanged: (val) async {
                     if (!val) {
-
-                      // 🛑 Prevent unblock if virtual card request is pending
-                      if (someoneTriedConfirmed && requestSent) {
-                        showCupertinoGlassToast(
-                          context,
-                          "You cannot unblock this card until your new virtual card is generated.",
-                          isSuccess: false,
-                          position: ToastPosition.top,
-                        );
-                        return;
-                      }
-
                       // 🛑 Prevent unblock if CVV regeneration is ongoing
                       if (showRequestNewCvv) {
                         showCupertinoGlassToast(
@@ -767,89 +580,100 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                         return;
                       }
 
-                      // Handle "Just Block for Now (Temporary)"
+                      // 🛑 Handle "Someone Tried to Use My Card" logic
+                      if (someoneTriedConfirmed) {
+                        if (requestSent) {
+                          showCupertinoGlassToast(
+                            context,
+                            "You cannot unblock this card until your new virtual card is generated.",
+                            isSuccess: false,
+                            position: ToastPosition.top,
+                          );
+                          return;
+                        } else {
+                          bool confirm = await _showUnblockConfirmation(
+                            title: "Unblock Card",
+                            message: "This will cancel the fraud suspicion reason and reactivate your card.",
+                          );
+                          if (confirm) {
+                            try {
+                              await SecurityOptionsService().unblockVirtualCard(_cardModel!.id.toString());
+                              await _loadCard();
+                              showCupertinoGlassToast(
+                                context,
+                                "Card unblocked successfully.",
+                                isSuccess: true,
+                                position: ToastPosition.top,
+                              );
+                            } catch (e) {
+                              showCupertinoGlassToast(
+                                context,
+                                "Failed to unblock card.",
+                                isSuccess: false,
+                                position: ToastPosition.top,
+                              );
+                            }
+                          }
+                          return;
+                        }
+                      }
+
+                      // 🔓 Handle "Just Block for Now (Temporary)"
                       if (isJustBlockNowConfirmed && blockReason?.label == 'Just Block for Now (Temporary)') {
                         bool confirm = await _showUnblockConfirmation(
                           title: "Unblock Card",
-                          message: "Turning off the block will cancel the reason:\n\n🛑 ${blockReason?.label ?? ''}",
+                          message: "This will cancel the temporary block.",
                         );
                         if (confirm) {
-                          setState(() {
-                            isBlocked = false;
-                            blockReason = null;
-                            blockStartDate = null;
-                            blockEndDate = null;
-                            isPermanent = false;
-                            showRequestCard = false;
-                            isJustBlockNowConfirmed = false;
-                            someoneTriedConfirmed = false;
-                          });
-                          showCupertinoGlassToast(
-                            context,
-                            "Card unblocked and reason cleared.",
-                            isSuccess: true,
-                            position: ToastPosition.top,
-                          );
+                          try {
+                            await SecurityOptionsService().unblockVirtualCard(_cardModel!.id.toString());
+                            await _loadCard();
+                            showCupertinoGlassToast(
+                              context,
+                              "Card unblocked successfully.",
+                              isSuccess: true,
+                              position: ToastPosition.top,
+                            );
+                          } catch (e) {
+                            showCupertinoGlassToast(
+                              context,
+                              "Failed to unblock card.",
+                              isSuccess: false,
+                              position: ToastPosition.top,
+                            );
+                          }
                         }
                         return;
                       }
 
-                      // Handle "Someone Tried to Use My Card"
-                      if (someoneTriedConfirmed && blockReason?.label == 'Someone Tried to Use My Card') {
+                      // 🔓 Handle "I'm Closing My Account or Switching"
+                      if (isAccountClosureConfirmed && blockReason?.label == "I'm Closing My Account or Switching") {
                         bool confirm = await _showUnblockConfirmation(
                           title: "Unblock Card",
-                          message: "Turning off the block will cancel the reason:\n\n⚠️ ${blockReason?.label ?? ''}",
+                          message: "This will cancel the closure reason and reactivate your card.",
                         );
                         if (confirm) {
-                          setState(() {
-                            isBlocked = false;
-                            blockReason = null;
-                            blockStartDate = null;
-                            blockEndDate = null;
-                            isPermanent = false;
-                            showRequestCard = false;
-                            someoneTriedConfirmed = false;
-                          });
-                          showCupertinoGlassToast(
-                            context,
-                            "Card unblocked and reason cleared.",
-                            isSuccess: true,
-                            position: ToastPosition.top,
-                          );
+                          try {
+                            await SecurityOptionsService().unblockVirtualCard(_cardModel!.id.toString());
+                            await _loadCard();
+                            showCupertinoGlassToast(
+                              context,
+                              "Card unblocked successfully.",
+                              isSuccess: true,
+                              position: ToastPosition.top,
+                            );
+                          } catch (e) {
+                            showCupertinoGlassToast(
+                              context,
+                              "Failed to unblock card.",
+                              isSuccess: false,
+                              position: ToastPosition.top,
+                            );
+                          }
                         }
                         return;
                       }
-
-                      // Handle "I'm Closing My Account or Switching"
-                      if (isAccountClosureConfirmed && blockReason?.label == 'I’m Closing My Account or Switching') {
-                        bool confirm = await _showUnblockConfirmation(
-                          title: "Clear Block Reason?",
-                          message: "Turning off the block will cancel the closure reason and reactivate the card.\nAre you sure?",
-                        );
-                        if (confirm) {
-                          setState(() {
-                            isBlocked = false;
-                            blockReason = null;
-                            blockStartDate = null;
-                            blockEndDate = null;
-                            isPermanent = false;
-                            showRequestCard = false;
-                            isAccountClosureConfirmed = false;
-                          });
-                          showCupertinoGlassToast(
-                            context,
-                            "Block reason cleared. Card is now active.",
-                            isSuccess: true,
-                            position: ToastPosition.top,
-                          );
-                        }
-                        return;
-                      }
-
-
                     }
-
-
 
                     // ✅ If no confirmation needed, proceed normally
                     setState(() {
@@ -862,6 +686,10 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
 
                     // ⏳ Timeout if no reason selected within 15s after block
                     if (val && blockReason == null) {
+                      setState(() {
+                        isPendingReasonSelection = true;
+                      });
+
                       Future.delayed(const Duration(milliseconds: 300), () {
                         showCupertinoGlassToast(
                           context,
@@ -873,7 +701,10 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
 
                       Future.delayed(const Duration(seconds: 15), () {
                         if (mounted && blockReason == null && isBlocked) {
-                          setState(() => isBlocked = false);
+                          setState(() {
+                            isBlocked = false;
+                            isPendingReasonSelection = false;
+                          });
                           showCupertinoGlassToast(
                             context,
                             "Blocking has been cancelled due to no reason being selected.",
@@ -899,11 +730,11 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                 Column(
                   children: [
                     IgnorePointer(
-                          ignoring: isDropdownDisabled,
-                          child: Opacity(
-                            opacity: isDropdownDisabled ? 0.5 : 1.0,
+                      ignoring: isDropdownDisabled,
+                      child: Opacity(
+                        opacity: isDropdownDisabled ? 0.5 : 1.0,
 
-                      child: CustomDropdown(
+                        child: CustomDropdown(
                           key: ValueKey(blockReason?.label ?? 'none'),
                           icon: Icons.warning_amber_rounded,
                           selectedItem: blockReason,
@@ -916,10 +747,13 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                               blockStartDate = null;
                               blockEndDate = null;
                               showRequestNewCvv = false;
+                              // ✅ Resume polling once reason is chosen
+                              isPendingReasonSelection = false;
                             });
 
                             if (value.label == 'Just Block for Now (Temporary)') {
                               Future.delayed(const Duration(milliseconds: 100), () {
+                                if (!mounted) return;
                                 showDialog(
                                   context: context,
                                   barrierDismissible: false,
@@ -969,53 +803,8 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                             ),
                                           ),
                                           const SizedBox(height: 24),
-                                          Container(
-                                            margin: const EdgeInsets.only(bottom: 20),
-                                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                                            decoration: BoxDecoration(
-                                              gradient: const LinearGradient(
-                                                colors: [Color(0xFFf7f7f7), Color(0xFFe0e0e0)],
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                              ),
-                                              borderRadius: BorderRadius.circular(18),
-                                              border: Border.all(color: Color(0xFFDDDDDD)),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black.withOpacity(0.03),
-                                                  blurRadius: 6,
-                                                  offset: const Offset(0, 3),
-                                                ),
-                                              ],
-                                            ),
-                                            child: Column(
-                                              children: const [
-                                                Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                  children: [
-                                                    Text("Cardholder", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF555555))),
-                                                    Text("Nada S. Rhandor", style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                                                  ],
-                                                ),
-                                                SizedBox(height: 8),
-                                                Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                  children: [
-                                                    Text("Card Number", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF555555))),
-                                                    Text("•••• •••• •••• 345", style: TextStyle(fontSize: 13.8, fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E))),
-                                                  ],
-                                                ),
-                                                SizedBox(height: 8),
-                                                Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                  children: [
-                                                    Text("Status", style: TextStyle(fontSize: 13.2, fontWeight: FontWeight.w500, color: Color(0xFF555555))),
-                                                    Text("Temporarily Blocked", style: TextStyle(fontSize: 13.8, fontWeight: FontWeight.w700, color: Colors.redAccent)),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+
+                                          // ✅ Buttons
                                           Row(
                                             children: [
                                               Expanded(
@@ -1034,7 +823,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                                     });
                                                     showCupertinoGlassToast(
                                                       context,
-                                                      "Temporary block cancelled.\nReason was: Just Block for Now",
+                                                      "Temporary block cancelled.",
                                                       isSuccess: false,
                                                       position: ToastPosition.top,
                                                     );
@@ -1050,24 +839,39 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                                     backgroundColor: Colors.redAccent,
                                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                                   ),
-                                                  onPressed: () {
+                                                  onPressed: () async {
                                                     Navigator.pop(context);
-                                                    setState(() {
-                                                      isJustBlockNowConfirmed = true;
-                                                    });
-                                                    Future.delayed(const Duration(milliseconds: 250), _scrollToBottom);
-                                                    showCupertinoGlassToast(
-                                                      context,
-                                                      "For the moment, card is temporarily blocked and all card services are disabled.",
-                                                      isSuccess: false,
-                                                      position: ToastPosition.top,
-                                                    );
+                                                    setState(() => isBlocked = true);
+                                                    try {
+                                                      final backendReason = blockReasonBackendValues[blockReason!.label]!;
+                                                      await SecurityOptionsService().blockVirtualCard(
+                                                        _cardModel!.id.toString(),
+                                                        BlockVirtualCardRequest(blockReason: backendReason),
+                                                      );
+                                                      await _loadCard();
+                                                      showCupertinoGlassToast(
+                                                        context,
+                                                        "Card blocked successfully!",
+                                                        isSuccess: true,
+                                                        position: ToastPosition.top,
+                                                      );
+
+
+                                                    } catch (e) {
+                                                      setState(() => isBlocked = false);
+                                                      showCupertinoGlassToast(
+                                                        context,
+                                                        "Failed to block card.",
+                                                        isSuccess: false,
+                                                        position: ToastPosition.top,
+                                                      );
+                                                    }
                                                   },
                                                   child: const Text("Confirm", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                                                 ),
                                               ),
                                             ],
-                                          )
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -1078,6 +882,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
 
                             else if (value.label == 'My Card Details Got Leaked (CVV)') {
                               Future.delayed(const Duration(milliseconds: 100), () {
+                                if (!mounted) return;
                                 showDialog(
                                   context: context,
                                   barrierDismissible: false,
@@ -1103,6 +908,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                             textAlign: TextAlign.center,
                                           ),
                                           const SizedBox(height: 24),
+
                                           Row(
                                             children: [
                                               Expanded(
@@ -1138,47 +944,64 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                                     backgroundColor: Colors.redAccent,
                                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                                   ),
-                                                  onPressed: () {
+                                                  onPressed: () async {
                                                     Navigator.pop(context);
-                                                    setState(() {
-                                                      isBlocked = true;
-                                                      showRequestNewCvv = true;
-                                                      blockStartDate = null;
-                                                      blockEndDate = null;
-                                                    });
+                                                    setState(() => isBlocked = true);
+                                                    try {
+                                                      final backendReason = blockReasonBackendValues[blockReason!.label]!;
+                                                      await SecurityOptionsService().blockVirtualCard(
+                                                        _cardModel!.id.toString(),
+                                                        BlockVirtualCardRequest(blockReason: backendReason),
+                                                      );
+                                                      await _loadCard();
+                                                      // ✅ After success — update UI state & start CVV generation timer
+                                                      showCupertinoGlassToast(
+                                                        context,
+                                                        "New CVV request sent. Card is blocked for your protection.",
+                                                        isSuccess: true,
+                                                        position: ToastPosition.top,
+                                                      );
 
-                                                    showCupertinoGlassToast(
-                                                      context,
-                                                      "New CVV request sent. Card is blocked for your protection.",
-                                                      isSuccess: false,
-                                                      position: ToastPosition.top,
-                                                    );
+                                                      setState(() {
+                                                        showRequestNewCvv = true;
+                                                        blockStartDate = null;
+                                                        blockEndDate = null;
+                                                        cvvCountdown = 60;
+                                                      });
 
-                                                    // ⏱ Start CVV generation countdown
-                                                    cvvCountdown = 60;
-                                                    _cvvTimer?.cancel();
-                                                    _cvvTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-                                                      if (!mounted || cvvCountdown == 0) {
-                                                        timer.cancel();
-                                                        _cvvTimer = null;
-                                                        if (mounted && isBlocked && blockReason?.label == 'My Card Details Got Leaked (CVV)') {
-                                                          setState(() {
-                                                            showRequestNewCvv = false;
-                                                            isBlocked = false;
-                                                            blockReason = null;
-                                                            _cvvController.text = '•••';
-                                                          });
-                                                          showCupertinoGlassToast(
-                                                            context,
-                                                            "New CVV generated. Card is now active.",
-                                                            isSuccess: true,
-                                                            position: ToastPosition.top,
-                                                          );
+                                                      _cvvTimer?.cancel();
+                                                      _cvvTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+                                                        if (!mounted || cvvCountdown == 0) {
+                                                          timer.cancel();
+                                                          _cvvTimer = null;
+                                                          if (mounted && isBlocked && blockReason?.label == 'My Card Details Got Leaked (CVV)') {
+                                                            setState(() {
+                                                              showRequestNewCvv = false;
+                                                              isBlocked = false;
+                                                              blockReason = null;
+                                                              _cvvController.text = '•••';
+                                                            });
+                                                            showCupertinoGlassToast(
+                                                              context,
+                                                              "New CVV generated. Card is now active.",
+                                                              isSuccess: true,
+                                                              position: ToastPosition.top,
+                                                            );
+                                                          }
+                                                        } else {
+                                                          setState(() => cvvCountdown--);
                                                         }
-                                                      } else {
-                                                        setState(() => cvvCountdown--);
-                                                      }
-                                                    });
+                                                      });
+
+                                                    } catch (e) {
+                                                      setState(() => isBlocked = false);
+                                                      showCupertinoGlassToast(
+                                                        context,
+                                                        "Failed to block card.",
+                                                        isSuccess: false,
+                                                        position: ToastPosition.top,
+                                                      );
+                                                    }
                                                   },
                                                   child: const Text("Request New CVV", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                                                 ),
@@ -1196,6 +1019,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
 
                             else if (value.label == 'Someone Tried to Use My Card') {
                               Future.delayed(const Duration(milliseconds: 100), () {
+                                if (!mounted) return;
                                 showDialog(
                                   context: context,
                                   barrierDismissible: false,
@@ -1209,15 +1033,19 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                         children: [
                                           const Icon(Icons.warning_amber_rounded, size: 50, color: Colors.redAccent),
                                           const SizedBox(height: 18),
-                                          const Text("Suspicious Activity",
-                                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1C1C1E)),
-                                              textAlign: TextAlign.center),
+                                          const Text(
+                                            "Suspicious Activity",
+                                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1C1C1E)),
+                                            textAlign: TextAlign.center,
+                                          ),
                                           const SizedBox(height: 12),
                                           const Text(
-                                              "We detected a report of unauthorized use.\nThis card will be permanently blocked.",
-                                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF3A3A3C), height: 1.5),
-                                              textAlign: TextAlign.center),
+                                            "We detected a report of unauthorized use.\nThis card will be permanently blocked.",
+                                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF3A3A3C), height: 1.5),
+                                            textAlign: TextAlign.center,
+                                          ),
                                           const SizedBox(height: 24),
+
                                           Row(
                                             children: [
                                               Expanded(
@@ -1254,24 +1082,40 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                                     backgroundColor: Colors.redAccent,
                                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                                   ),
-                                                  onPressed: () {
+                                                  onPressed: () async {
                                                     Navigator.pop(context);
-                                                    setState(() {
-                                                      isBlocked = true;
-                                                      isPermanent = true;
-                                                      showRequestNewCvv = false;
-                                                      blockStartDate = null;
-                                                      blockEndDate = null;
-                                                      someoneTriedConfirmed = true; // ✅ FLAG SET
-                                                    });
-                                                    Future.delayed(const Duration(milliseconds: 150), () {
+                                                    setState(() => isBlocked = true);
+
+                                                    try {
+                                                      if (blockReason == null || !blockReasonBackendValues.containsKey(blockReason!.label)) {
+                                                        throw Exception("Invalid block reason selected.");
+                                                      }
+
+                                                      final backendReason = blockReasonBackendValues[blockReason!.label]!;
+
+                                                      await SecurityOptionsService().blockVirtualCard(
+                                                        _cardModel!.id.toString(),
+                                                        BlockVirtualCardRequest(blockReason: backendReason),
+                                                      );
+                                                      await _loadCard();
+
+
                                                       showCupertinoGlassToast(
                                                         context,
                                                         "Card is now permanently blocked.",
+                                                        isSuccess: true,
+                                                        position: ToastPosition.top,
+                                                      );
+
+                                                    } catch (e) {
+                                                      setState(() => isBlocked = false);
+                                                      showCupertinoGlassToast(
+                                                        context,
+                                                        "Failed to block card.",
                                                         isSuccess: false,
                                                         position: ToastPosition.top,
                                                       );
-                                                    });
+                                                    }
                                                   },
                                                   child: const Text("Confirm Block", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                                                 ),
@@ -1286,9 +1130,9 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                               });
                             }
 
-
-                            else if (value.label == 'I’m Closing My Account or Switching') {
+                            else if (value.label == "I'm Closing My Account or Switching") {
                               Future.delayed(const Duration(milliseconds: 100), () {
+                                if (!mounted) return;
                                 showDialog(
                                   context: context,
                                   barrierDismissible: false,
@@ -1300,33 +1144,21 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(
-                                            CupertinoIcons.arrow_right_arrow_left_circle_fill,
-                                            size: 50,
-                                            color: Colors.redAccent,
-                                          ),
+                                          const Icon(CupertinoIcons.arrow_right_arrow_left_circle_fill, size: 50, color: Colors.redAccent),
                                           const SizedBox(height: 18),
                                           const Text(
                                             "Closing Account",
-                                            style: TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w800,
-                                              color: Color(0xFF1C1C1E),
-                                            ),
+                                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1C1C1E)),
                                             textAlign: TextAlign.center,
                                           ),
                                           const SizedBox(height: 12),
                                           const Text(
-                                            "You’re closing your account or switching.\nThis card will be permanently blocked for your security.",
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w500,
-                                              color: Color(0xFF3A3A3C),
-                                              height: 1.55,
-                                            ),
+                                            "You're closing your account or switching.\nThis card will be permanently blocked for your security.",
+                                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF3A3A3C), height: 1.55),
                                             textAlign: TextAlign.center,
                                           ),
                                           const SizedBox(height: 24),
+
                                           Row(
                                             children: [
                                               Expanded(
@@ -1351,46 +1183,53 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                                       position: ToastPosition.top,
                                                     );
                                                   },
-                                                  child: const Text(
-                                                    "Cancel",
-                                                    style: TextStyle(
-                                                      color: Colors.black,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
+                                                  child: const Text("Cancel", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
                                                 ),
                                               ),
                                               const SizedBox(width: 12),
                                               Expanded(
                                                 child: TextButton(
                                                   style: TextButton.styleFrom(
-                                                    backgroundColor: const Color(0xFFFF3B30), // Slightly stronger red
+                                                    backgroundColor: const Color(0xFFFF3B30),
                                                     padding: const EdgeInsets.symmetric(vertical: 14),
                                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                                   ),
-                                                  onPressed: () {
+                                                  onPressed: () async {
                                                     Navigator.pop(context);
-                                                    setState(() {
-                                                      isBlocked = true;
-                                                      isPermanent = true;
-                                                      showRequestCard = true;
-                                                      isAccountClosureConfirmed = true; // ⬅️ This makes dropdown disabled
-                                                    });
-                                                    showCupertinoGlassToast(
-                                                      context,
-                                                      "Card permanently blocked.",
-                                                      isSuccess: false,
-                                                      position: ToastPosition.top,
-                                                    );
-                                                    Future.delayed(const Duration(milliseconds: 250), _scrollToBottom);
+                                                    setState(() => isBlocked = true);
+
+                                                    try {
+                                                      if (blockReason == null || !blockReasonBackendValues.containsKey(blockReason!.label)) {
+                                                        throw Exception("Invalid block reason selected.");
+                                                      }
+
+                                                      final backendReason = blockReasonBackendValues[blockReason!.label]!;
+
+                                                      await SecurityOptionsService().blockVirtualCard(
+                                                        _cardModel!.id.toString(),
+                                                        BlockVirtualCardRequest(blockReason: backendReason),
+                                                      );
+                                                      await _loadCard();
+
+
+                                                      showCupertinoGlassToast(
+                                                        context,
+                                                        "Card blocked successfully!",
+                                                        isSuccess: true,
+                                                        position: ToastPosition.top,
+                                                      );
+
+                                                    } catch (e) {
+                                                      setState(() => isBlocked = false);
+                                                      showCupertinoGlassToast(
+                                                        context,
+                                                        "Failed to block card.",
+                                                        isSuccess: false,
+                                                        position: ToastPosition.top,
+                                                      );
+                                                    }
                                                   },
-                                                  child: const Text(
-                                                    "Confirm Block",
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
+                                                  child: const Text("Confirm Block", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                                                 ),
                                               ),
                                             ],
@@ -1511,7 +1350,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
                                   const SizedBox(height: 12),
                                   Text(
                                     requestSent
-                                        ? "Your request for a new virtual card is being processed. You’ll be notified when it's ready."
+                                        ? "Your request for a new virtual card is being processed. You'll be notified when it's ready."
                                         : "Suspicious activity detected. You can request a new card or disable the block to reset this reason.",
                                     style: const TextStyle(
                                       fontSize: 15,
@@ -1528,101 +1367,80 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
 
                           const SizedBox(height: 18),
 
-                          // 🔘 Button Logic with CupertinoButton
                           AnimatedSwitcher(
                             duration: const Duration(milliseconds: 300),
                             child: requestSent
-                                ? SizedBox(
-                              width: 250,
-                              key: const ValueKey("sentBtn"),
-                              child: CupertinoButton.filled(
-                                onPressed: null,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                borderRadius: BorderRadius.circular(18),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(CupertinoIcons.checkmark_alt, size: 18),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      "Request Sent",
-                                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                                    ),
-                                  ],
-                                ),
+                                ? CupertinoButton.filled(
+                              onPressed: null,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              borderRadius: BorderRadius.circular(18),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(CupertinoIcons.checkmark_alt, size: 18),
+                                  SizedBox(width: 8),
+                                  Text("Request Sent", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                ],
                               ),
                             )
-                                : SizedBox(
-                              width: 250,
-                              key: const ValueKey("requestBtn"),
-                              child: CupertinoButton(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                color: const Color(0xFF007AFF),
-                                borderRadius: BorderRadius.circular(18),
-                                onPressed: () {
-                                  showCupertinoDialog(
-                                    context: context,
-                                    builder: (_) => CupertinoAlertDialog(
-                                      title: Column(
-                                        children: const [
-                                          Icon(CupertinoIcons.creditcard_fill, size: 40, color: Color(0xFF007AFF)),
-                                          SizedBox(height: 10),
-                                          Text(
-                                            "Request Card?",
-                                            style: TextStyle(fontWeight: FontWeight.w600),
-                                          ),
-                                        ],
-                                      ),
-                                      content: const Padding(
-                                        padding: EdgeInsets.only(top: 8),
-                                        child: Text(
-                                          "Do you want to request a new virtual card?\nYour current card is blocked.",
-                                          style: TextStyle(height: 1.5),
-                                        ),
-                                      ),
-                                      actions: [
-                                        CupertinoDialogAction(
-                                          child: const Text("Cancel"),
-                                          onPressed: () => Navigator.pop(context),
-                                        ),
-                                        CupertinoDialogAction(
-                                          isDestructiveAction: true,
-                                          child: const Text("Confirm"),
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            setState(() => requestSent = true);
-                                            Future.delayed(const Duration(milliseconds: 300), () {
-                                              showCupertinoGlassToast(
-                                                context,
-                                                "Virtual card request sent ✅",
-                                                isSuccess: true,
-                                                position: ToastPosition.top,
-                                              );
-                                            });
-                                          },
-                                        ),
+                                : CupertinoButton(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              color: const Color(0xFF007AFF),
+                              borderRadius: BorderRadius.circular(18),
+                              onPressed: () async {
+                                final confirmed = await showCupertinoDialog(
+                                  context: context,
+                                  builder: (_) => CupertinoAlertDialog(
+                                    title: Column(
+                                      children: const [
+                                        Icon(CupertinoIcons.creditcard_fill, size: 40, color: Color(0xFF007AFF)),
+                                        SizedBox(height: 10),
+                                        Text("Request Card?", style: TextStyle(fontWeight: FontWeight.w600)),
                                       ],
                                     ),
-                                  );
-                                },
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(CupertinoIcons.creditcard, size: 18, color: Colors.white), // icon white
-                                    SizedBox(width: 8),
-                                    Text(
-                                      "Request New Virtual Card",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 15,
-                                        color: Colors.white, // ⬅️ force white text here
-                                      ),
+                                    content: const Padding(
+                                      padding: EdgeInsets.only(top: 8),
+                                      child: Text("Do you want to request a new virtual card?\nYour current card is blocked."),
                                     ),
-                                  ],
-                                ),
+                                    actions: [
+                                      CupertinoDialogAction(
+                                        child: const Text("Cancel"),
+                                        onPressed: () => Navigator.pop(context, false),
+                                      ),
+                                      CupertinoDialogAction(
+                                        isDestructiveAction: true,
+                                        child: const Text("Confirm"),
+                                        onPressed: () => Navigator.pop(context, true),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirmed == true) {
+                                  // 🔥 Call the service
+                                  final success = await CardService().requestVirtualCardReplacement(
+                                    ReplaceVirtualCardRequest(blockedCardId: _cardModel!.id),
+                                  );
+
+                                  if (success) {
+                                    setState(() => requestSent = true);
+                                    showCupertinoGlassToast(context, "Virtual card request sent ✅", isSuccess: true, position: ToastPosition.top);
+                                  } else {
+                                    showCupertinoGlassToast(context, "Failed to send request", isSuccess: false, position: ToastPosition.top);
+                                  }
+                                }
+                              },
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(CupertinoIcons.creditcard, size: 18, color: Colors.white),
+                                  SizedBox(width: 8),
+                                  Text("Request New Virtual Card", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.white)),
+                                ],
                               ),
                             ),
-                          ),
+                          )
+
                         ],
                       )
 
@@ -1707,7 +1525,7 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
           ),
 
 
-        if (isBlocked && isPermanent && blockReason?.label == 'I’m Closing My Account or Switching') ...[
+        if (isBlocked && isPermanent && blockReason?.label == "I'm Closing My Account or Switching") ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Container(
@@ -1772,538 +1590,41 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
     );
   }
 
-
-
-  Future<bool> _showUnblockConfirmation({required String title, required String message}) async {
-    bool result = false;
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.warning_amber_rounded, size: 40, color: Colors.redAccent),
-              const SizedBox(height: 16),
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFFD1D1D6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        result = false;
-                      },
-                      child: const Text("Cancel", style: TextStyle(color: Colors.black)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        result = true;
-                      },
-                      child: const Text("Confirm", style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    return result;
-  }
-
-  Widget _buildEcommerceToggle() {
-    final isDisabled = isBlocked || isCardLocked;
-
-    if (isDisabled && isEcommerceEnabled) {
-      // 🔥 Force OFF if disabled and still ON
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() => isEcommerceEnabled = false);
-        }
-      });
+  Widget _buildCard() {
+    if (isLoading || _cardModel == null) {
+      return const Center(child: CircularProgressIndicator());
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-      child: Opacity(
-        opacity: isDisabled ? 0.4 : 1,
-        child: IgnorePointer(
-          ignoring: isDisabled,
-          child: Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E5EA),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFD1D1D6)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.shopping_cart_checkout, color: Colors.grey.shade700, size: 20),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    "E-Commerce Payments",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-                UltraSwitch(
-                  value: isBlocked ? false : isEcommerceEnabled,
-                  onChanged: (val) {
-                    setState(() => isEcommerceEnabled = val);
-                  },
-                  activeColor: Colors.blueAccent,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-
-  // Card UI widgets
-  Widget _buildCard() =>
-      GestureDetector(
-        onTap: _flipCard,
-        child: AnimatedBuilder(
-          animation: _animation,
-          builder: (context, child) {
-            final showFront = _animation.value <= pi / 2;
-            return Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.001)
-                ..rotateY(_animation.value),
-              child: showFront
-                  ? _buildFrontCard()
-                  : Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.identity()
-                  ..rotateY(pi),
-                child: _buildBackCard(),
-              ),
-            );
-          },
-        ),
-      );
-
-  Widget _buildFrontCard() => _cardContainer(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'My Virtual Card',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-            Image.asset('assets/visa_logo.png', width: 50, height: 50),
-          ],
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isRequestSent ? '**** **** *** 456' : '1234 5678 9012',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 2.5,
-              ),
-            ),
-          ],
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('CARDHOLDER',
-                    style: TextStyle(fontSize: 10, color: Colors.white54)),
-                SizedBox(height: 2),
-                Text('Nada S. Rhandor',
-                    style: TextStyle(fontSize: 13, color: Colors.white)),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text('EXPIRES',
-                    style: TextStyle(fontSize: 10, color: Colors.white54)),
-                const SizedBox(height: 2),
-                Text(
-                  isRequestSent ? '**/**' : '08/26',
-                  style: const TextStyle(fontSize: 13, color: Colors.white),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildBackCard() => _cardContainer(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: 30,
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(6),
-          ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('CVV', style: TextStyle(color: Colors.white70)),
-            Container(
-              width: 60,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                isRequestSent ? '•••' : '527',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const Spacer(),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Signature',
-                style: TextStyle(fontSize: 10, color: Colors.white54)),
-            Text(
-              isRequestSent ? '**/**' : 'Valid Thru 08/26',
-              style: const TextStyle(fontSize: 10, color: Colors.white54),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-
-  Widget _cardContainer({required Widget child}) {
-    return Container(
-      height: 200,
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: cardGradient,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-              color: Colors.black26, blurRadius: 20, offset: Offset(0, 12))
+    return FlippableCard(
+      animation: _animation,
+      onTap: _flipCard,
+      onCvvInputTap: isBackByTap ? null : _revealCVV,
+      isRequestSent: isRequestSent,
+      isFront: isFront,
+      isFlippedByCvv: isFlippedByCvv,
+      showCvv: isCvvRevealed,
+      cardholderName: _cardModel!.cardholderName,
+      cardNumber: isCardCancelled
+          ? "**** **** **** ${_cardModel!.cardNumber.substring(_cardModel!.cardNumber.length - 3)}"
+          : _cardModel!.cardNumber,
+      cvv: isCardCancelled ? '***' : (_cardModel!.cvv ?? '•••'),
+      expiryDate: isCardCancelled ? '****' : _cardModel!.expirationDate,
+      cardGradient: LinearGradient(
+        colors: [
+          _hexToColor(_cardModel!.gradientStartColor),
+          _hexToColor(_cardModel!.gradientEndColor),
         ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
-      child: child,
+      packName: _cardModel!.cardPack.label,
     );
+
   }
-
-  Widget _buildPinPopup() {
-    return Positioned.fill(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-        child: Container(
-          color: Colors.black.withOpacity(0.4),
-          child: Center(
-            child: AnimatedScale(
-              scale: showPinPopup ? 1.0 : 0.95,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutBack,
-              child: Container(
-                width: 280,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 28),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.75),
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
-                        blurRadius: 30,
-                        spreadRadius: 4)
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text("Your PIN",
-                        style: TextStyle(fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white70)),
-                    const SizedBox(height: 14),
-                    const Text("9241",
-                        style: TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 6,
-                          shadows: [
-                            Shadow(color: Colors.white24, blurRadius: 6),
-                            Shadow(color: Colors.black45, offset: Offset(0, 1)),
-                          ],
-                        )),
-                    const SizedBox(height: 16),
-                    Text("This will close in $countdown sec",
-                        style: const TextStyle(fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: Colors.white60)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-  Widget _buildDeleteCardSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 22),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Soft Black Line with Limited Width and Space Around the Label
-              Container(
-                width: 130, // Increased the width for a longer line
-                child: const Divider(
-                  color: Color(0xFFB0B0B0), // Soft black line color
-                  thickness: 2, // Slightly bolder line
-                ),
-              ),
-              // Adding space around the label
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12), // Space between the label and lines
-                child: const Text(
-                  "Delete Card",
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1C1C1E),
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-              // Soft Black Line with Limited Width and Space Around the Label
-              Container(
-                width: 130, // Increased the width for a longer line
-                child: const Divider(
-                  color: Color(0xFFB0B0B0), // Soft black line color
-                  thickness: 2, // Slightly bolder line
-                ),
-              ),
-            ],
-          ),
-        ),
-        Center(
-          child: Container(
-            width: 370, // Slightly increased the width to 370 (adjust as needed)
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E5EA), // iOS grey input style
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFD1D1D6)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 📝 Static RichText about card deletion
-                RichText(
-                  textAlign: TextAlign.justify,
-                  text: const TextSpan(
-                    text:
-                    "Deleting this card will permanently remove it from your profile. "
-                        "You will no longer be able to use it for transactions, and linked services "
-                        "like subscriptions or online payments will be disabled.",
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      height: 1.55,
-                      color: Color(0xFF3C3C43),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                // 🧠 Animated Process Section (Span + Button)
-                SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // 🔹 Info Span BEFORE sending
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 700),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0, 0.1),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: !isRequestSent
-                            ? Padding(
-                          key: const ValueKey("beforeRequestSpan"),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            "Submitting a secure unlink request...",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13.8,
-                              height: 1.55,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        )
-                            : const SizedBox.shrink(),
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      // 🔹 Fancy Button (Delete ➔ Request Sent)
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 600),
-                        switchInCurve: Curves.easeOutBack,
-                        switchOutCurve: Curves.easeInBack,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: ScaleTransition(
-                              scale: Tween<double>(begin: 0.95, end: 1.0).animate(animation),
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: isRequestSent
-                            ? CupertinoButton.filled(
-                          key: const ValueKey("sentDeleteBtn"),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          borderRadius: BorderRadius.circular(18),
-                          onPressed: null,
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(CupertinoIcons.checkmark_seal_fill, size: 20, color: Colors.white),
-                              SizedBox(width: 8),
-                              Text(
-                                "Request Sent",
-                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                              ),
-                            ],
-                          ),
-                        )
-                            : GestureDetector(
-                          key: const ValueKey("deleteBtn"),
-                          onTap: () => _showDeleteConfirmationDialog(reason: blockReason?.label),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF3B30), // iOS Delete Red
-                              borderRadius: BorderRadius.circular(18),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.redAccent.withOpacity(0.25),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(CupertinoIcons.delete_solid, color: Colors.white, size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  "Delete Card",
-                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.white),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
-            ),
-          ),
-        ),
-      ],
-    );
+  Color _hexToColor(String hex) {
+    hex = hex.replaceAll('#', '');
+    if (hex.length == 6) hex = 'FF$hex';
+    return Color(int.parse(hex, radix: 16));
   }
 
   Widget buildLabeledField(String label, Widget child) {
@@ -2336,15 +1657,46 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
     _pinController.dispose();
     _scrollController.dispose();
     _reasonResetTimer?.cancel();
-    _cvvTimer?.cancel(); // ✅ cleanup CVV countdown timer
+    _cvvTimer?.cancel();
+    _autoFlipTimer?.cancel();
+    _ecommerceStatusTimer?.cancel();
+    _cardStatusTimer?.cancel();
     super.dispose();
   }
 
 
 
+  Future<void> _startEcommerceStatusPolling() {
+    _ecommerceStatusTimer?.cancel();
+    _ecommerceStatusTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      _fetchEcommerceStatus();
+    });
+    return Future.value();
+  }
+
+  Future<void> _fetchEcommerceStatus() async {
+    if (_cardModel == null) return;
+    try {
+      final option = await SecurityOptionsService().fetchVirtualCardSecurityOptionById(_cardModel!.id.toString());
+      if (!mounted) return;
+      setState(() {
+        isEcommerceEnabled = option.ecommerceEnabled;
+      });
+    } catch (e) {
+      // Optionally handle error
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
+
+    // Add this check to prevent null errors
+    if (isLoading || _cardModel == null) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     final bounceScale = _scrollController.hasClients && _scrollController.offset < 0
         ? 1.0 - (_scrollController.offset / -150)
@@ -2402,44 +1754,214 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
               controller: _scrollController,
               padding: const EdgeInsets.only(bottom: 40),
               children: [
+
+                // Card rendering stays always visible (even if cancelled)
                 AnimatedScale(
                   scale: bounceScale.clamp(0.96, 1.02),
                   duration: const Duration(milliseconds: 100),
                   curve: Curves.easeOut,
                   child: _buildCard(),
                 ),
-                _buildInfoSection(),
 
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 500),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: isRequestSent
-                      ? const SizedBox.shrink()
-                      : _buildLimitSection(),
+                // Cardholder Info Section (masked when cancelled)
+                CardholderInfoSection(
+                  usernameController: _usernameController,
+                  emailController: _emailController,
+                  cvvController: _cvvController,
+                  isRequestSent: isRequestSent,
+                  isCvvRevealed: isCvvRevealed,
+                  onTapRevealCvv: _revealCVV,
+                  cardNumber: isCardCancelled
+                      ? "**** **** **** ${_cardModel!.cardNumber.substring(_cardModel!.cardNumber.length - 3)}"
+                      : _cardModel!.cardNumber,
+                  expiryDate: isCardCancelled ? '****' : _cardModel!.expirationDate,
                 ),
 
-                if (!isRequestSent) _buildSectionTitle("Security Settings"),
+                // ✅ Fully Modern Cancelled Span (iOS Apple eWallet Style)
+                if (isCardCancelled)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: Container(
+                        width: 340,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFF1F1), Color(0xFFFFE5E5)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              CupertinoIcons.creditcard_fill,
+                              size: 48,
+                              color: const Color(0xFFFF3B30),
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.15),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              "Card Cancelled",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1C1C1E),
+                                letterSpacing: -0.3,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 14),
+                            const Text(
+                              "This virtual card has been permanently disabled and can no longer be used for purchases or authorizations. All transactions, subscriptions, and linked payments associated with this card are automatically declined.",
+                              textAlign: TextAlign.justify,
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                height: 1.55,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF3C3C43),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            const Text(
+                              "If you need assistance or wish to request a replacement card, please contact our support team. Reactivation of this card is not possible for security reasons.",
+                              textAlign: TextAlign.justify,
+                              style: TextStyle(
+                                fontSize: 13.8,
+                                height: 1.55,
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF3C3C43),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
 
+                // ✅ Online Limit Section (hidden if cancelled)
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 500),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
-                  child: isRequestSent
+                  child: (isRequestSent || isCardCancelled)
                       ? const SizedBox.shrink()
-                      : _buildEcommerceToggle(),
+                      : OnlineLimitSection(
+                    selectedLimit: selectedLimit,
+                    maxLimit: _cardModel!.cardPack.limitAnnual,
+                    isBlocked: isBlocked,
+                    isCardLocked: isCardLocked,
+                    onChanged: (val) {
+                      setState(() => selectedLimit = val);
+                    },
+                    onChangeEnd: (val) async {
+                      final success = await CardService().updateVirtualCardLimit(_cardModel!.id.toString(), val);
+                      if (!mounted) return;
+                      if (success) {
+                        showCupertinoGlassToast(
+                          context,
+                          "Annual limit updated successfully!",
+                          isSuccess: true,
+                          position: ToastPosition.top,
+                        );
+                        await _loadCard();
+                      } else {
+                        showCupertinoGlassToast(
+                          context,
+                          "Failed to update annual limit.",
+                          isSuccess: false,
+                          position: ToastPosition.top,
+                        );
+                      }
+                    },
+                    isSecurityOptionsLoading: isSecurityOptionsLoading,
+                    ecommerceEnabled: isEcommerceEnabled ?? false,
+                  ),
                 ),
 
+                // ✅ Section Title Security Settings (hide if cancelled)
+                if (!isRequestSent && !isCardCancelled)
+                  const SectionTitle(title: "Security Settings"),
+
+                // ✅ Ecommerce Toggle (hidden if cancelled)
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 500),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
-                  child: isRequestSent
+                  child: (isRequestSent || isCardCancelled)
+                      ? const SizedBox.shrink()
+                      : Stack(
+                    alignment: Alignment.centerRight,
+                    children: [
+                      EcommerceToggle(
+                        isBlocked: isBlocked,
+                        isCardLocked: isCardLocked,
+                        isEcommerceEnabled: isEcommerceEnabled ?? false,
+                        onChanged: (val) async {
+                          setState(() => isEcommerceEnabled = val);
+                          try {
+                            await SecurityOptionsService().updateSecurityOptions(
+                              UpdateSecurityOptionRequest(
+                                cardId: _cardModel!.id,
+                                ecommerceEnabled: val,
+                              ),
+                            );
+                            await _fetchEcommerceStatus();
+                            showCupertinoGlassToast(
+                              context,
+                              "E-commerce status updated!",
+                              isSuccess: true,
+                              position: ToastPosition.top,
+                            );
+                          } catch (e) {
+                            setState(() => isEcommerceEnabled = !val);
+                            showCupertinoGlassToast(
+                              context,
+                              "Failed to update e-commerce status.",
+                              isSuccess: false,
+                              position: ToastPosition.top,
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ✅ Block Card Section (hidden if cancelled)
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: (isRequestSent || isCardCancelled)
                       ? const SizedBox.shrink()
                       : _buildBlockCardSection(),
                 ),
 
-                _buildDeleteCardSection(),
+                // ✅ Delete Card Section (still allowed to show after cancellation)
+                DeleteCardSection(
+                  isRequestSent: isRequestSent,
+                  blockReasonLabel: blockReason?.label,
+                  onDeleteTap: () => _initiateCardDeletion(),
+                  buttonTitle: "Cancel Card",
+                  isEnabled: !isCardCancelled,
+                ),
+
                 const SizedBox(height: 40),
               ],
             ),
@@ -2475,14 +1997,117 @@ class _VirtualCardDetailsScreenState extends State<VirtualCardDetailsScreen>
           ),
 
           // 🔐 PIN Popup
-          if (showPinPopup) _buildPinPopup(),
+          if (showPinPopup) PinPopup(
+            show: showPinPopup,
+            pin: "9241", // or your dynamic PIN
+            countdown: countdown,
+          ),
+
         ],
       ),
     );
   }
 
+  Future<void> _confirmAndBlockCard() async {
+    setState(() => isBlocked = true);
+    try {
+      if (blockReason == null || !blockReasonBackendValues.containsKey(blockReason!.label)) {
+        throw Exception("Invalid block reason selected.");
+      }
+
+      final backendReason = blockReasonBackendValues[blockReason!.label]!;
+
+      await SecurityOptionsService().blockVirtualCard(
+        _cardModel!.id.toString(),
+        BlockVirtualCardRequest(blockReason: backendReason),
+      );
+
+      showCupertinoGlassToast(
+        context,
+        "Card blocked successfully!",
+        isSuccess: true,
+        position: ToastPosition.top,
+      );
+    } catch (e) {
+      setState(() => isBlocked = false);
+      showCupertinoGlassToast(
+        context,
+        "Failed to block card.",
+        isSuccess: false,
+        position: ToastPosition.top,
+      );
+    }
+  }
+  void _syncBlockingState() {
+    if (_cardModel == null) return;
+
+    // ✅ Read directly from backend value now
+    isCardCancelled = _cardModel!.isCanceled;
+
+    if (isCardCancelled) {
+      // 🔥 Fully reset blocking related states if card is cancelled
+      isBlocked = false;
+      blockReason = null;
+      isJustBlockNowConfirmed = false;
+      someoneTriedConfirmed = false;
+      isAccountClosureConfirmed = false;
+      showRequestNewCvv = false;
+      requestSent = false;
+      return;  // Exit early — nothing else to process
+    }
+
+    // If still active card, map normal states
+    isBlocked = _cardModel!.status != 'ACTIVE';
+
+    // Map backend reason to dropdown
+    if (_cardModel!.blockReason != null) {
+      final reasonLabel = blockReasonBackendValues.entries
+          .firstWhere(
+            (entry) => entry.value == _cardModel!.blockReason,
+        orElse: () => const MapEntry('', ''),
+      ).key;
+
+      if (reasonLabel.isNotEmpty) {
+        blockReason = blockReasons.firstWhere(
+              (item) => item.label == reasonLabel,
+        );
+      }
+    } else {
+      blockReason = null;
+    }
+
+    // Update flags depending on backend reason
+    isJustBlockNowConfirmed = _cardModel!.blockReason == "JUST_BLOCK_TEMPORARY";
+    someoneTriedConfirmed = _cardModel!.blockReason == "FRAUD_SUSPECTED";
+    isAccountClosureConfirmed = _cardModel!.blockReason == "CLOSING_ACCOUNT";
+    showRequestNewCvv = _cardModel!.blockReason == "CVV_LEAK";
+    requestSent = _cardModel?.replacementRequested == true;
+  }
+
+  void _startCardStatusPolling() {
+    _cardStatusTimer?.cancel();
+    _cardStatusTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (isPendingReasonSelection) return; // ✅ Pause polling while reason selection active
+      await _refreshCardStatus();
+    });
+  }
+
+
+// Refresh card state directly from backend
+  Future<void> _refreshCardStatus() async {
+    if (widget.cardId == null) return;
+    try {
+      final card = await CardService().fetchCardById(widget.cardId!);
+      if (!mounted) return;
+      setState(() {
+        _cardModel = card;
+        selectedLimit = card.annualLimit;
+        _syncBlockingState();  // Always resync flags
+      });
+    } catch (e) {
+      // Optional: handle network or backend errors
+    }
+  }
+
 
 }
-
-
-
