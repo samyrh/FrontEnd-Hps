@@ -10,6 +10,7 @@ class CardPackModel {
   final int maxCountries;
   final int maxDays;
   final String type;
+  final double internationalWithdrawLimitPerTravel;
 
   CardPackModel({
     required this.label,
@@ -23,6 +24,8 @@ class CardPackModel {
     required this.maxCountries,
     required this.maxDays,
     required this.type,
+    required this.internationalWithdrawLimitPerTravel,  // ✅ added to constructor
+
   });
 
   factory CardPackModel.fromJson(Map<String, dynamic> json) {
@@ -38,6 +41,8 @@ class CardPackModel {
       maxCountries: json['maxCountries'],
       maxDays: json['maxDays'],
       type: json['type'],
+      internationalWithdrawLimitPerTravel: (json['internationalWithdrawLimitPerTravel'] as num).toDouble(),  // ✅ new field from backend
+
     );
   }
 }
