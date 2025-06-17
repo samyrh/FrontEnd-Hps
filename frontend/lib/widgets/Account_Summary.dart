@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../dto/card_model.dart';
+import '../dto/card_dto/card_model.dart';
 
 class AccountSummary extends StatelessWidget {
   final CardModel card;
