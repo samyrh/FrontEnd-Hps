@@ -168,9 +168,9 @@ class _AddNewCardState extends State<AddNewCard> {
       audience: 'Étudiants de moins de 26 ans',
       internationalWithdraw: true,
       cardType: 'Visa',
-      travelCountriesIncluded: 3, // ✅ Only 3 countries
+      travelCountriesIncluded: 3,
       maxTravelDays: 90,
-      internationalWithdrawLimitPerTravel: 3000,
+      internationalWithdrawLimitPerTravel: 6000,  // ✅ updated
     ),
     'Visa Classic': PhysicalCardSpecsPack(
       label: 'Visa Classic',
@@ -185,9 +185,9 @@ class _AddNewCardState extends State<AddNewCard> {
       audience: 'Tous clients majeurs',
       internationalWithdraw: true,
       cardType: 'Visa',
-      travelCountriesIncluded: 5, // ✅ 5 countries
+      travelCountriesIncluded: 5,
       maxTravelDays: 90,
-      internationalWithdrawLimitPerTravel: 8000,
+      internationalWithdrawLimitPerTravel: 15000,  // ✅ updated
     ),
     'Visa Gold': PhysicalCardSpecsPack(
       label: 'Visa Gold',
@@ -202,9 +202,9 @@ class _AddNewCardState extends State<AddNewCard> {
       audience: 'Clients Premium',
       internationalWithdraw: true,
       cardType: 'Visa',
-      travelCountriesIncluded: 10, // ✅ 10 countries
+      travelCountriesIncluded: 10,
       maxTravelDays: 90,
-      internationalWithdrawLimitPerTravel: 12000,
+      internationalWithdrawLimitPerTravel: 30000,  // ✅ updated
     ),
     'Visa Business': PhysicalCardSpecsPack(
       label: 'Visa Business',
@@ -219,9 +219,9 @@ class _AddNewCardState extends State<AddNewCard> {
       audience: 'Entrepreneurs et sociétés',
       internationalWithdraw: true,
       cardType: 'Visa',
-      travelCountriesIncluded: 15, // ✅ 15 countries
+      travelCountriesIncluded: 15,
       maxTravelDays: 90,
-      internationalWithdrawLimitPerTravel: 18000,
+      internationalWithdrawLimitPerTravel: 60000,  // ✅ updated
     ),
     'Visa Premium+': PhysicalCardSpecsPack(
       label: 'Visa Premium+',
@@ -236,9 +236,9 @@ class _AddNewCardState extends State<AddNewCard> {
       audience: 'Clients haut de gamme',
       internationalWithdraw: true,
       cardType: 'Visa',
-      travelCountriesIncluded: 20, // ✅ 20 countries
+      travelCountriesIncluded: 20,
       maxTravelDays: 90,
-      internationalWithdrawLimitPerTravel: 25000,
+      internationalWithdrawLimitPerTravel: 80000,  // ✅ updated
     ),
     'Visa International': PhysicalCardSpecsPack(
       label: 'Visa International',
@@ -253,9 +253,9 @@ class _AddNewCardState extends State<AddNewCard> {
       audience: 'Voyageurs et expatriés',
       internationalWithdraw: true,
       cardType: 'Visa',
-      travelCountriesIncluded: 15, // ✅ 15 countries
+      travelCountriesIncluded: 15,
       maxTravelDays: 90,
-      internationalWithdrawLimitPerTravel: 15000,
+      internationalWithdrawLimitPerTravel: 150000,  // ✅ updated
     ),
   };
 
