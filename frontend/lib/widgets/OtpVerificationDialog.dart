@@ -3,16 +3,19 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/VirtualCardOtpService/VirtualCardOtpService.dart';
 import '../services/otp_verfication/OtpService.dart';
 
 class OtpVerificationDialog extends StatefulWidget {
   final void Function(String otp) onConfirmed;
   final String username;
+  final bool isVirtualCardOtp;
 
   const OtpVerificationDialog({
     super.key,
     required this.onConfirmed,
     required this.username,
+    this.isVirtualCardOtp = false,
   });
 
   @override
@@ -108,10 +111,25 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog>
     });
 
     final code = otp;
-    final isValid = await OtpService.verifyOtp(
-      username: widget.username,
-      otp: code,
-    );
+    bool isValid = false;
+
+    try {
+      if (widget.isVirtualCardOtp) {
+        // ✅ Use VirtualCardOtpService if it's virtual card OTP
+        isValid = await VirtualCardOtpService.verifyOtp(
+          username: widget.username,
+          otp: code,
+        );
+      } else {
+        // ✅ Use classic OtpService for password reset or others
+        isValid = await OtpService.verifyOtp(
+          username: widget.username,
+          otp: code,
+        );
+      }
+    } catch (e) {
+      isValid = false;
+    }
 
     setState(() => _isLoading = false);
 
