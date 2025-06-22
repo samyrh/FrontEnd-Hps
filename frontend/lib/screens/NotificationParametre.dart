@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-
-
+import 'package:go_router/go_router.dart';
+import '../dto/NotificationPreferencesDTO.dart';
+import '../services/event/NotificationPreferenceService.dart';
+import '../widgets/NotificationToggleSwitch.dart';
+import '../widgets/Toast.dart';
 
 class Notificationparametre extends StatefulWidget {
   const Notificationparametre({Key? key}) : super(key: key);
@@ -11,308 +16,262 @@ class Notificationparametre extends StatefulWidget {
 }
 
 class _NotificationparametreState extends State<Notificationparametre> {
-  bool switch1 = true;
-  bool switch2 = true;
-  bool switch3 = true;
-  bool switch4 = true;
-  bool switch5 = true;
-  bool switch6 = true;
-  bool switch7 = true;
-  bool switch8 = true;
-  bool switch9 = true;
-  bool switch10 = true;
+  bool cardStatusNotification = false;
+  bool cardCancelNotification = false;
+  bool newCardRequestNotification = false;
+  bool cardReplacementNotification = false;
+  bool travelPlanNotification = false;
+  bool transactionNotification = false;
+  bool _isDirty = false;
+  bool isLoading = true;
 
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          titlePadding: const EdgeInsets.only(top: 24),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-          title: const Center(
-            child: Text(
-              'Notifications',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          content: const Padding(
-            padding: EdgeInsets.only(top: 8, bottom: 16),
-            child: Text(
-              "Are you sure you want to log out? You’ll need to login again to use the app.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.black54),
-            ),
-          ),
-          actions: [
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.black),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel', style: TextStyle(color: Colors.black)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      print('User logged out');
-                    },
-                    child: const Text('Log out'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
+  final NotificationPreferenceService _service = NotificationPreferenceService();
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) => _loadPreferences());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadPreferences() async {
+    if (_isDirty) return;
+    final dto = await _service.fetchPreferences();
+    if (dto != null) {
+      setState(() {
+        cardStatusNotification = dto.cardStatusNotification;
+        cardCancelNotification = dto.cardCancelNotification;
+        newCardRequestNotification = dto.newCardRequestNotification;
+        cardReplacementNotification = dto.cardReplacementNotification;
+        travelPlanNotification = dto.travelPlanNotification;
+        transactionNotification = dto.transactionNotification;
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    final dto = NotificationPreferencesDTO(
+      cardStatusNotification: cardStatusNotification,
+      cardCancelNotification: cardCancelNotification,
+      newCardRequestNotification: newCardRequestNotification,
+      cardReplacementNotification: cardReplacementNotification,
+      travelPlanNotification: travelPlanNotification,
+      transactionNotification: transactionNotification,
     );
+    final success = await _service.updatePreferences(dto);
+    showCupertinoGlassToast(context, success ? "Preferences updated" : "Update failed", isSuccess: success);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFFEAF2FF),
-              Color(0xFFFFFFFF),
-              Color(0xFFFFE5EC),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      backgroundColor: const Color(0xFFF8F9FB),
+      body: isLoading
+          ? const Center(child: CupertinoActivityIndicator())
+          : Stack(
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFCFCFE), Color(0xFFF6F8FF), Color(0xFFFFF0F5)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const Text(
-                      'Notifications',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.logout_rounded),
-                      onPressed: () => _showLogoutDialog(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Profile
-                Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 30,
-                      backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=47'),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('Nada Rhandour',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                        SizedBox(height: 4),
-                        Text('Hps Client', style: TextStyle(fontSize: 14, color: Colors.grey)),
+          SafeArea(
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: () => context.pop(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.black.withOpacity(0.05),
+                            ),
+                            child: const Icon(CupertinoIcons.back, size: 20),
+                          ),
+                        ),
+                        const Text(
+                          'Notification Preferences',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'SF Pro Text',
+                          ),
+                        ),
+                        const SizedBox(width: 32),
                       ],
                     ),
-                  ],
-                ),
-
-                const SizedBox(height: 32),
-
-                Expanded(
-                  child: ListView(
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4, bottom: 8, top: 12),
-                        child: Text('Transaction',
-                            style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
-                      ),
-                      SettingsItem(
-                        title: 'Incoming transaction',
-                        subtitle: 'Receive a notification for incoming transactions',
-                        hasSwitch: true,
-                        switchWidget: CupertinoSwitch(
-                          activeColor: CupertinoColors.activeBlue,
-                          value: switch4,
-                          onChanged: (val) => setState(() => switch4 = val),
-                        ),
-                      ),
-
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4, bottom: 8, top: 12),
-                        child: Text(
-                          'Travel Plan',
-                          style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      SettingsItem(
-                        title: 'Travel plan approved',
-                        subtitle: 'Get notified when your travel plan is validated',
-                        hasSwitch: true,
-                        switchWidget: CupertinoSwitch(
-                          activeColor: CupertinoColors.activeBlue,
-                          value: switch5,
-                          onChanged: (val) => setState(() => switch5 = val),
-                        ),
-                      ),
-                      SettingsItem(
-                        title: 'Travel plan reminder',
-                        subtitle: 'Reminder when your travel plan is about to expire',
-                        hasSwitch: true,
-                        switchWidget: CupertinoSwitch(
-                          activeColor: CupertinoColors.activeBlue,
-                          value: switch6,
-                          onChanged: (val) => setState(() => switch6 = val),
-                        ),
-                      ),
-
-                      // 🔔 Alerts Section
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4, bottom: 8, top: 12),
-                        child: Text(
-                          'Alerts',
-                          style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      SettingsItem(
-                        title: 'Transaction alert received',
-                        subtitle: 'Get notified when a transaction alert is triggered',
-                        hasSwitch: true,
-                        switchWidget: CupertinoSwitch(
-                          activeColor: CupertinoColors.activeBlue,
-                          value: switch7,
-                          onChanged: (val) => setState(() => switch7 = val),
-                        ),
-                      ),
-                      SettingsItem(
-                        title: 'Suspicious activity detected',
-                        subtitle: 'Be alerted when we detect unusual activity',
-                        hasSwitch: true,
-                        switchWidget: CupertinoSwitch(
-                          activeColor: CupertinoColors.activeBlue,
-                          value: switch8,
-                          onChanged: (val) => setState(() => switch8 = val),
-                        ),
-                      ),
-
-// 💳 Cards Section
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4, bottom: 8, top: 12),
-                        child: Text(
-                          'Cards',
-                          style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      SettingsItem(
-                        title: 'Card blocked',
-                        subtitle: 'Notification when a card is blocked',
-                        hasSwitch: true,
-                        switchWidget: CupertinoSwitch(
-                          activeColor: CupertinoColors.activeBlue,
-                          value: switch9,
-                          onChanged: (val) => setState(() => switch9 = val),
-                        ),
-                      ),
-
-                    ],
                   ),
                 ),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                ..._buildNotificationSections(context),
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildNotificationSections(BuildContext context) {
+    return [
+      _buildSection('Card Status Changes', 'Card blocked/unblocked', cardStatusNotification, CupertinoIcons.lock),
+      _buildSection('Card Cancel & Reactivation', 'Card canceled/reactivated', cardCancelNotification, CupertinoIcons.xmark_circle),
+      _buildSection('New Card Requests', 'New card approved/rejected', newCardRequestNotification, CupertinoIcons.creditcard),
+      _buildSection('Card Replacement', 'Replacement card status', cardReplacementNotification, CupertinoIcons.arrow_2_circlepath),
+      _buildSection('Travel Plan Notifications', 'Travel plan updates', travelPlanNotification, CupertinoIcons.airplane),
+      _buildSection('Transaction Notifications', 'Incoming transaction', transactionNotification, CupertinoIcons.money_dollar_circle),
+    ];
+  }
+
+  Widget _buildSection(String title, String label, bool value, IconData icon) {
+    final screenPadding = MediaQuery.of(context).size.width * 0.05;
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: screenPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 24, bottom: 8),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: CupertinoColors.systemGrey2,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'SF Pro Text',
+                ),
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.88),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withOpacity(0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(icon, size: 22, color: CupertinoColors.systemGrey),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                label,
+                                style: const TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'SF Pro Text',
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _getSubtitle(label),
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: CupertinoColors.systemGrey,
+                                  fontWeight: FontWeight.w400,
+                                  fontFamily: 'SF Pro Text',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        NotificationToggleSwitch(
+                          value: value,
+                          onChanged: (val) {
+                            setState(() {
+                              switch (label) {
+                                case 'Card blocked/unblocked':
+                                  cardStatusNotification = val;
+                                  break;
+                                case 'Card canceled/reactivated':
+                                  cardCancelNotification = val;
+                                  break;
+                                case 'New card approved/rejected':
+                                  newCardRequestNotification = val;
+                                  break;
+                                case 'Replacement card status':
+                                  cardReplacementNotification = val;
+                                  break;
+                                case 'Travel plan updates':
+                                  travelPlanNotification = val;
+                                  break;
+                                case 'Incoming transaction':
+                                  transactionNotification = val;
+                                  break;
+                              }
+                            });
+                            _savePreferences();
+                          },
+                          label: label,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-}
 
-class SettingsItem extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-  final bool hasSwitch;
-  final Widget? switchWidget;
-  final VoidCallback? onTap;
-
-  const SettingsItem({
-    Key? key,
-    required this.title,
-    this.subtitle,
-    this.hasSwitch = false,
-    this.switchWidget,
-    this.onTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: hasSwitch ? null : onTap,
-      child: Container(
-        height: 64,
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 6,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                  if (subtitle != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2.0),
-                      child: Text(
-                        subtitle!,
-                        style: const TextStyle(fontSize: 12.5, color: Colors.grey),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (hasSwitch && switchWidget != null) switchWidget!,
-          ],
-        ),
-      ),
-    );
+  String _getSubtitle(String label) {
+    switch (label) {
+      case 'Card blocked/unblocked':
+        return 'Alerts for card being locked or unlocked.';
+      case 'Card canceled/reactivated':
+        return 'Notified when card is closed or reactivated.';
+      case 'New card approved/rejected':
+        return 'Track status of new card requests.';
+      case 'Replacement card status':
+        return 'Updates on replacement card progress.';
+      case 'Travel plan updates':
+        return 'Travel alerts for card access abroad.';
+      case 'Incoming transaction':
+        return 'See when transactions hit your card.';
+      default:
+        return '';
+    }
   }
 }
