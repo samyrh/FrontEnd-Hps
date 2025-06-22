@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../screens/sign_in.dart';
 import '../services/change_password/ChangePasswordService.dart';
 import '../services/change_password/VerifyPasswordService.dart';
 import '../widgets/Toast.dart';
@@ -256,7 +255,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          automaticallyImplyLeading: false, // ✅ Hides back arrow
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E1E2D)),
+            onPressed: () => Navigator.pop(context),
+          ),
           title: const Text(
             'Change Password',
             style: TextStyle(
