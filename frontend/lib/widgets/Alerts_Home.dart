@@ -1,16 +1,48 @@
 import 'package:flutter/material.dart';
+import '../../../dto/card_dto/EventResponseDTO.dart';
+import '../services/event/EventService.dart';
 
-class AlertsWidget extends StatelessWidget {
-  final VoidCallback? onViewAll; // ✅ added callback
+class AlertsWidget extends StatefulWidget {
+  final VoidCallback? onViewAll;
 
-  const AlertsWidget({super.key, this.onViewAll}); // ✅ updated constructor
+  const AlertsWidget({super.key, this.onViewAll});
+
+  @override
+  State<AlertsWidget> createState() => _AlertsWidgetState();
+}
+
+class _AlertsWidgetState extends State<AlertsWidget> {
+  List<EventResponseDTO> _latestEvents = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    try {
+      final events = await EventService().fetchCardholderEvents();
+      setState(() {
+        _latestEvents = events.take(5).toList(); // Only 5 latest events
+        _isLoading = false;
+      });
+    } catch (e) {
+      print("❌ Error loading alerts: $e");
+      setState(() {
+        _latestEvents = [];
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 🔔 Header with View All
+        // Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -23,7 +55,7 @@ class AlertsWidget extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: onViewAll, // ✅ trigger passed callback
+              onPressed: widget.onViewAll,
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                 backgroundColor: const Color(0xFFEAEAEC),
@@ -32,7 +64,6 @@ class AlertsWidget extends StatelessWidget {
                 ),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: const [
                   Text(
                     'View all',
@@ -40,15 +71,10 @@ class AlertsWidget extends StatelessWidget {
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF1C1C1E),
-                      letterSpacing: 0.1,
                     ),
                   ),
                   SizedBox(width: 6),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: Color(0xFF1C1C1E),
-                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 14),
                 ],
               ),
             ),
@@ -56,46 +82,71 @@ class AlertsWidget extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // 🔔 Alerts List
-        ..._alerts.map((alert) => _buildAlertCard(alert)).toList(),
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_latestEvents.isEmpty)
+          const Text(
+            "No alerts available.",
+            style: TextStyle(fontSize: 14, color: Colors.black54),
+          )
+        else
+          ..._latestEvents.map((event) => _buildAlertCard(event)).toList(),
       ],
     );
   }
 
-  // 🔧 Build each Alert card
-  Widget _buildAlertCard(_Alert alert) {
+  Widget _buildAlertCard(EventResponseDTO event) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F2F7),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E5EA)),
+        color: const Color(0xFFF8F8F9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(alert.icon, color: alert.color, size: 22),
-          const SizedBox(width: 12),
+          // ✅ Enlarged icon with perfect centering
+          SizedBox(
+            width: 42,
+            height: 42,
+            child: Center(
+              child: Icon(
+                _getIconByCategory(event.category),
+                size: 30, // 🔥 ~40% bigger than before (was 22)
+                color: _getIconColor(event.category),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  alert.title,
+                  _getFormattedCategory(event.category),
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
                     color: Color(0xFF1C1C1E),
+                    letterSpacing: 0.3,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  alert.description,
+                  event.message ?? "No message available.",
                   style: const TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w400,
-                    color: Colors.black54,
+                    color: Color(0xFF3C3C43),
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -105,41 +156,64 @@ class AlertsWidget extends StatelessWidget {
       ),
     );
   }
+
+  IconData _getIconByCategory(String? category) {
+    switch (category) {
+      case 'VIRTUAL_CARD_BLOCKED':
+      case 'PHYSICAL_CARD_BLOCKED':
+        return Icons.lock_outline_rounded;
+      case 'VIRTUAL_CARD_UNBLOCKED':
+      case 'PHYSICAL_CARD_UNBLOCKED':
+        return Icons.lock_open_rounded;
+      case 'VIRTUAL_CARD_CANCELED':
+      case 'PHYSICAL_CARD_CANCELED':
+        return Icons.cancel_rounded;
+      case 'PAYMENT_RECEIVED':
+        return Icons.attach_money;
+      case 'SECURITY_ALERT':
+        return Icons.shield_outlined;
+      case 'CARD_CREATED':
+        return Icons.credit_card;
+      case 'LOGIN_ATTEMPT':
+        return Icons.login_rounded;
+      case 'OFFER_AVAILABLE':
+        return Icons.local_offer_outlined;
+      case 'CARD_REPLACED':
+        return Icons.swap_horiz;
+      default:
+        return Icons.notifications_none_rounded;
+    }
+  }
+
+  Color _getIconColor(String? category) {
+    switch (category) {
+      case 'VIRTUAL_CARD_BLOCKED':
+      case 'PHYSICAL_CARD_BLOCKED':
+        return const Color(0xFFFF3B30); // iOS Red
+      case 'VIRTUAL_CARD_UNBLOCKED':
+      case 'PHYSICAL_CARD_UNBLOCKED':
+        return const Color(0xFF30D158); // iOS Green
+      case 'VIRTUAL_CARD_CANCELED':
+      case 'PHYSICAL_CARD_CANCELED':
+        return const Color(0xFFFF9F0A); // iOS Orange
+      case 'PAYMENT_RECEIVED':
+        return const Color(0xFF32D74B); // iOS Green
+      case 'SECURITY_ALERT':
+        return const Color(0xFF5856D6); // iOS Purple
+      case 'LOGIN_ATTEMPT':
+        return const Color(0xFFFFCC00); // iOS Yellow
+      case 'OFFER_AVAILABLE':
+        return const Color(0xFF007AFF); // iOS Blue
+      case 'CARD_REPLACED':
+        return const Color(0xFF5AC8FA); // iOS Cyan
+      case 'CARD_CREATED':
+        return const Color(0xFF34C759); // iOS Green
+      default:
+        return const Color(0xFF8E8E93); // iOS Gray
+    }
+  }
+
+  String _getFormattedCategory(String? category) {
+    return category?.replaceAll("_", " ").toUpperCase() ?? 'UNKNOWN';
+  }
 }
-
-// 💼 Model for Alert
-class _Alert {
-  final String title;
-  final String description;
-  final IconData icon;
-  final Color color;
-
-  const _Alert({
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.color,
-  });
-}
-
-// 📢 Sample Alerts List
-const List<_Alert> _alerts = [
-  _Alert(
-    title: 'Unusual Login Attempt',
-    description: 'Someone tried logging in from a new device.',
-    icon: Icons.warning_amber_rounded,
-    color: Color(0xFFFF3B30),
-  ),
-  _Alert(
-    title: 'Payment Received',
-    description: 'You received \$150.00 from Axians.',
-    icon: Icons.attach_money,
-    color: Color(0xFF32D74B),
-  ),
-  _Alert(
-    title: 'New Offer Available',
-    description: 'Check out your new cashback rewards.',
-    icon: Icons.local_offer_outlined,
-    color: Color(0xFF007AFF),
-  ),
-];
