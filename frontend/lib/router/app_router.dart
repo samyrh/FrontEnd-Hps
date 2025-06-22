@@ -15,6 +15,7 @@ import '../screens/Landing3.dart';
 import '../screens/Landing4.dart';
 import '../screens/Menu.dart';
 import '../screens/NewCard.dart';
+import '../screens/NotificationParametre.dart';
 import '../screens/NotificationsScreen.dart';
 import '../screens/PhysicalCardDetailsScreen.dart';
 import '../screens/ProfileScreen.dart';
@@ -279,6 +280,13 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
+    GoRoute(
+      path: '/notification_settings',
+      name: 'notification_settings',
+      pageBuilder: (context, state) =>
+          buildSlideTransitionPage(child: const Notificationparametre(), state: state),
+    ),
+
 
 
   ],
