@@ -7,6 +7,7 @@ import '../dto/card_dto/CardSecurityOptionsModel.dart';
 import '../dto/card_dto/UpdateSecurityOptionRequest.dart';
 import '../dto/card_dto/card_model.dart';
 import '../services/card_service/CardSecurityService.dart';
+import '../services/event/EventService.dart';
 import '../widgets/Alerts_Home.dart';
 import '../widgets/Home_Header.dart';
 import '../widgets/Card_Scroller.dart';
@@ -38,6 +39,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver   {
   CardModel? _selectedCard;
   List<CardSecurityOptionsModel> _securityOptions = [];
   Timer? _securityRefreshTimer;
+  int _unreadCount = 0;
+  Timer? _unreadCountRefreshTimer;
 
 
   final ScrollController _scrollController = ScrollController();
@@ -318,6 +321,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver   {
               onNotificationsPressed: () {
                 context.push('/notifications'); // ✅ Push to your NotificationsScreen
               },
+              unreadCount: _unreadCount,
             ),
           ),
         ],
@@ -451,6 +455,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver   {
   @override
   void initState() {
     super.initState();
+    _fetchUnreadCount();
+    // 🔁 Start unread count auto-refresh every 3 seconds
+    _unreadCountRefreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _fetchUnreadCount();
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshCurrentCardSecurityOptions();
@@ -463,9 +472,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver   {
 
     WidgetsBinding.instance.addObserver(this);
   }
+
+  Future<void> _fetchUnreadCount() async {
+    try {
+      final service = EventService();
+      final count = await service.fetchUnreadEventCount();
+      setState(() {
+        _unreadCount = count;
+      });
+    } catch (e) {
+      print("❌ Failed to fetch unread count: $e");
+    }
+  }
+
   @override
   void dispose() {
-    _securityRefreshTimer?.cancel(); // ✅ Stop the refresh loop
+    _securityRefreshTimer?.cancel();
+    _unreadCountRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -475,6 +498,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver   {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshCurrentCardSecurityOptions(); // refresh values from backend
+      _fetchUnreadCount();
     }
   }
 
