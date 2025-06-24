@@ -28,7 +28,7 @@ public class TravelPlan {
     @Column(nullable = false)
     private TravelPlanStatus status;
 
-    private double travelLimit;
+    private Double travelLimit;
     private int maxDays;
 
 

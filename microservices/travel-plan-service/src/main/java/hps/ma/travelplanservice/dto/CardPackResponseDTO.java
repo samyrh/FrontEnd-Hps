@@ -1,4 +1,4 @@
-package hps.ma.dto;
+package hps.ma.travelplanservice.dto;
 
 import lombok.Builder;
 

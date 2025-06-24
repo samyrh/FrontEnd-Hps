@@ -22,17 +22,25 @@ public class EmailScheduler {
         for (EventPayload payload : queue) {
             try {
                 String message = payload.getMessage() != null ? payload.getMessage().toLowerCase() : "";
-                String decryptedPassword = AESUtil.decrypt(payload.getPassword());
 
                 if (message.contains("changed their password")) {
+                    String decryptedPassword = AESUtil.decrypt(payload.getPassword());
                     emailService.sendPasswordChangedEmail(payload.getEmail(), payload.getUsername(), decryptedPassword);
                     System.out.println("✅ [Scheduler] Password change email sent to: " + payload.getEmail());
 
                 } else if (message.contains("reset their password")) {
+                    String decryptedPassword = AESUtil.decrypt(payload.getPassword());
                     emailService.sendPasswordResetEmail(payload.getEmail(), payload.getUsername(), decryptedPassword);
                     System.out.println("✅ [Scheduler] Password reset email sent to: " + payload.getEmail());
 
+                } else if (message.contains("pin updated")) {
+                    // ✅ No decryption needed for PIN update
+                    emailService.sendPinUpdateEmail(payload.getEmail(), payload.getUsername());
+                    System.out.println("✅ [Scheduler] PIN update email sent to: " + payload.getEmail());
+
                 } else {
+                    // Default: likely credentials (account creation)
+                    String decryptedPassword = AESUtil.decrypt(payload.getPassword());
                     emailService.sendCredentialsEmail(payload.getEmail(), payload.getUsername(), decryptedPassword);
                     System.out.println("✅ [Scheduler] Account creation email sent to: " + payload.getEmail());
                 }

@@ -9,7 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../dto/LoginUserDto.dart';
+import '../dto/auth_dto/LoginUserDto.dart';
 import '../services/auth/auth_service.dart';
 import '../services/auth/biometric_service.dart';
 import '../widgets/Toast.dart';
@@ -942,7 +942,7 @@ class _SignInScreenState extends State<SignInScreen> with TickerProviderStateMix
                         if (!success) {
                           showCupertinoGlassToast(
                             context,
-                            'Please activate fingerprint to continue.',
+                            ("No fingerprint enrolled. Please set up fingerprint authentication in your device settings."),
                             isSuccess: false,
                             position: ToastPosition.top,
                           );

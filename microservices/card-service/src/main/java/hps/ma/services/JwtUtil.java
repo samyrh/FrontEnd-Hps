@@ -1,5 +1,7 @@
 package hps.ma.services;
 
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 
 
@@ -13,11 +15,17 @@ public class JwtUtil {
     private String secret;
 
     public String extractUsername(String token) {
-        return Jwts.parser()
-                .setSigningKey(secret)
-                .parseClaimsJws(token.replace("Bearer ", ""))
-                .getBody()
-                .getSubject();
+        try {
+            return Jwts.parser()
+                    .setSigningKey(secret)
+                    .parseClaimsJws(token.replace("Bearer ", ""))
+                    .getBody()
+                    .getSubject();
+        } catch (ExpiredJwtException e) {
+            throw new RuntimeException("❌ JWT token has expired");
+        } catch (JwtException e) {
+            throw new RuntimeException("❌ Invalid JWT token");
+        }
     }
 }
 

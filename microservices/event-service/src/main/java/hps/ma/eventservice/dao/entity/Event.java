@@ -29,7 +29,7 @@ public class Event {
     private SenderType senderType; // AGENT or CARDHOLDER
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     private EventCategory category;
 
     private boolean isRead;

@@ -14,5 +14,6 @@ public record CardPackResponseDTO(
         boolean internationalWithdraw,
         int maxCountries,
         int maxDays,
-        String type
+        String type,
+        double internationalWithdrawLimitPerTravel
 ) {}

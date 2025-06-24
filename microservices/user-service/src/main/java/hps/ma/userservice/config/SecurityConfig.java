@@ -31,7 +31,7 @@ public class SecurityConfig {
         http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**", "/h2-console/**").permitAll()
-                        .requestMatchers("/api/cardholders/reset-password", "/api/cardholders/verify-username","/api/cardholders/verify-otp","/api/cardholders/internal/by-username/{username}","/api/cardholders/internal/by-id/{id}").permitAll()
+                        .requestMatchers("/api/cardholders/reset-password", "/api/cardholders/verify-username","/api/cardholders/verify-otp","/api/cardholders/internal/by-username/{username}","/api/cardholders/internal/by-id/{id}","/api/agents","/api/cardholders/me","/api/cardholders/virtual-card/generate-otp","/api/cardholders/virtual-card/verify-otp").permitAll()
                         .requestMatchers("/api/agents/**").hasRole("AGENT")
                         .requestMatchers("/api/cardholders/**").hasRole("CARDHOLDER")
                         .anyRequest().authenticated()

@@ -15,6 +15,8 @@ public record CardResponseDTO(
         CardStatus status,
         BlockReason blockReason,
         Date expirationDate,
+        String cvv,                // ← newly added
+        String pin,                // ← newly added
         boolean contactlessEnabled,
         boolean ecommerceEnabled,
         boolean tpeEnabled,
@@ -24,9 +26,11 @@ public record CardResponseDTO(
         boolean internationalWithdraw,
         Date blockEndDate,
         boolean isCanceled,
+        Boolean replacementRequested,
         String gradientStartColor,
         String gradientEndColor,
         double balance,
+        boolean hasActiveTravelPlan,
         String cardholderName,
         CardPackResponseDTO cardPack
 ) {}

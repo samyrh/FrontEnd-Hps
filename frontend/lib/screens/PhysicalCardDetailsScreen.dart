@@ -18,11 +18,9 @@ class AlwaysDisabledFocusNode extends FocusNode {
 
 class PhysicalCardDetailsScreen extends StatefulWidget {
   final bool autoScroll; // ✅ NEW
+  final String? cardId;
 
-  const PhysicalCardDetailsScreen({
-    Key? key,
-    this.autoScroll = false, // ✅ default false
-  }) : super(key: key);
+  const PhysicalCardDetailsScreen({Key? key, this.cardId, this.autoScroll = false}) : super(key: key);
 
   @override
   State<PhysicalCardDetailsScreen> createState() => _PhysicalCardDetailsScreenState();

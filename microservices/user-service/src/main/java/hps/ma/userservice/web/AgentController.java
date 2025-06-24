@@ -1,6 +1,8 @@
 package hps.ma.userservice.web;
 
+import hps.ma.userservice.dao.entities.Agent;
 import hps.ma.userservice.dao.entities.Cardholder;
+import hps.ma.userservice.dao.repositories.AgentRepository;
 import hps.ma.userservice.dao.repositories.CardholderReository;
 import hps.ma.userservice.dto.user.CreateCardholderRequest;
 import hps.ma.userservice.services.CardholderService;
@@ -10,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -20,6 +23,7 @@ public class AgentController {
 
     private final CardholderService cardholderService;
     private final CardholderReository cardholderReository;
+    private final AgentRepository agentRepository;
 
     @PreAuthorize("hasRole('AGENT')")
     @PostMapping("/cardholders")
@@ -72,6 +76,10 @@ public class AgentController {
                 .orElseGet(() -> ResponseEntity.status(404).body("User not found"));
     }
 
-
+    @GetMapping
+    public ResponseEntity<List<Agent>> getAllAgents() {
+        List<Agent> agents = agentRepository.findAll();
+        return ResponseEntity.ok(agents);
+    }
 }
 

@@ -17,7 +17,7 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   http: ^1.1.0
   shared_preferences: ^2.2.2
-
+  url_launcher: ^6.1.12
   google_fonts: ^6.1.0
   intl_phone_field: ^3.1.0
   flutter_svg: ^2.0.7
@@ -62,6 +62,7 @@ flutter:
     - assets/policy.jpg
     - assets/profile.png
     - assets/Logo_hps.png
+    - assets/me_user.png
 
 flutter_icons:
   android: true

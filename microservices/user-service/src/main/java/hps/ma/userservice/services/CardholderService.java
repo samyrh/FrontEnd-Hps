@@ -85,7 +85,7 @@ public class CardholderService {
         Cardholder cardholder = optional.get();
         cardholder.setSecurityCode(BCrypt.hashpw(rawCode, BCrypt.gensalt()));
         cardholder.setFirstLogin(false);
-        cardholderRepository.save(cardholder);
+        cardholderRepository.saveAndFlush(cardholder);
 
 
         // ✅ Send Kafka event to all agents
@@ -191,6 +191,22 @@ public class CardholderService {
         }
     }
 
+    public boolean updateBiometricStatus(String username, boolean enabled) {
+        Optional<Cardholder> optional = cardholderRepository.findByUsername(username);
+        if (optional.isEmpty()) throw new RuntimeException("User not found");
+
+        Cardholder cardholder = optional.get();
+        cardholder.setBiometricEnabled(enabled);
+        cardholderRepository.save(cardholder);
+        return enabled;
+    }
+
+    public boolean getBiometricStatus(String username) {
+        Optional<Cardholder> optional = cardholderRepository.findByUsername(username);
+        if (optional.isEmpty()) throw new RuntimeException("User not found");
+
+        return optional.get().isBiometricEnabled();
+    }
 
 }
 

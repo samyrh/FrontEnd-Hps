@@ -1,8 +1,9 @@
-package hps.ma.dto;
+package hps.ma.travelplanservice.dto;
 
-import hps.ma.dao.enums.BlockReason;
-import hps.ma.dao.enums.CardStatus;
-import hps.ma.dao.enums.CardType;
+
+import hps.ma.travelplanservice.dao.enums.BlockReason;
+import hps.ma.travelplanservice.dao.enums.CardStatus;
+import hps.ma.travelplanservice.dao.enums.CardType;
 import lombok.Builder;
 
 import java.util.Date;
@@ -15,8 +16,8 @@ public record CardResponseDTO(
         CardStatus status,
         BlockReason blockReason,
         Date expirationDate,
-        String cvv,                // ← newly added
-        String pin,                // ← newly added
+        String cvv,
+        String pin,
         boolean contactlessEnabled,
         boolean ecommerceEnabled,
         boolean tpeEnabled,
@@ -31,5 +32,6 @@ public record CardResponseDTO(
         String gradientEndColor,
         double balance,
         String cardholderName,
+        boolean hasActiveTravelPlan,
         CardPackResponseDTO cardPack
 ) {}

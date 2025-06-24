@@ -161,5 +161,51 @@ public class EmailService {
 
         mailSender.send(message);
     }
+    public void sendPinUpdateEmail(String to, String username) throws MessagingException {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, "utf-8");
+
+        String html = """
+<html>
+<body style="font-family: 'Segoe UI', sans-serif; background-color: #f4f4f7; padding: 30px;">
+  <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 0 12px rgba(0,0,0,0.05); padding: 32px;">
+    
+    <h2 style="color: #1a1a1a; font-size: 22px;">🔢 PIN Code Successfully Updated</h2>
+    <p>Hi <strong>%s</strong>,</p>
+    <p>This is to inform you that your PIN code was successfully updated for your card.</p>
+
+    <div style="background-color: #e2e3e5; padding: 16px; border-left: 5px solid #17a2b8; border-radius: 6px; margin: 20px 0;">
+      <p style="margin: 0;"><strong>Cardholder:</strong> %s</p>
+      <p style="margin: 0;"><strong>Action:</strong> PIN Update</p>
+      <p style="margin: 0;"><strong>Date:</strong> %s</p>
+    </div>
+
+    <p>If you did not request this change, please contact our support team immediately to secure your account.</p>
+
+    <h4 style="color: #1a1a1a; margin-top: 32px;">🛡️ Security Tips</h4>
+    <ul style="color: #333; padding-left: 20px;">
+      <li>Never share your PIN or password with anyone.</li>
+      <li>Update your credentials regularly for better security.</li>
+      <li>Enable two-factor authentication whenever possible.</li>
+    </ul>
+
+    <p style="margin-top: 30px; font-size: 14px;">
+      If you have any concerns, contact our support team at <a href="mailto:support@hps.com">support@hps.com</a>.
+    </p>
+
+    <hr style="margin: 40px 0; border: none; border-top: 1px solid #ccc;">
+    <p style="font-size: 12px; color: #888; text-align: center;">© %s HPS Technologies. All rights reserved.</p>
+  </div>
+</body>
+</html>
+""".formatted(username, username, new java.text.SimpleDateFormat("dd MMM yyyy, HH:mm").format(new Date()), java.time.Year.now());
+
+        helper.setTo(to);
+        helper.setSubject("🔢 Your Card PIN Has Been Updated");
+        helper.setText(html, true);
+        helper.setFrom("no-reply@hps.com");
+
+        mailSender.send(message);
+    }
 
 }

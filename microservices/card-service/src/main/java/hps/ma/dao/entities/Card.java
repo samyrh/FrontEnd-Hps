@@ -22,12 +22,15 @@ public class Card {
     private String cardNumber;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 20)
     private CardType type;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 30) // ensure enough room for enum string values
     private CardStatus status;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 30)
     private BlockReason blockReason;
 
     @Temporal(TemporalType.DATE)
@@ -37,26 +40,29 @@ public class Card {
 
     private String pin;
 
-    private boolean contactlessEnabled;
-    private boolean ecommerceEnabled;
-    private boolean tpeEnabled;
+    private Boolean contactlessEnabled;
+    private Boolean ecommerceEnabled;
+    private Boolean tpeEnabled;
 
     @Column(name = "daily_limit")
-    private double dailyLimit;
+    private Double dailyLimit;
 
     @Column(name = "monthly_limit")
-    private double monthlyLimit;
+    private Double monthlyLimit;
+
+    @Column(name = "replacement_requested")
+    private Boolean replacementRequested = false;
 
     @Column(name = "annual_limit")
-    private double annualLimit;
+    private Double annualLimit;
 
     @Column(name = "international_withdraw")
-    private boolean internationalWithdraw;
+    private Boolean internationalWithdraw;
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date blockEndDate;
 
-    private boolean isCanceled;
+    private Boolean isCanceled;
 
     @Column(name = "cardholder_id", nullable = false)
     private Long cardholderId;
@@ -71,7 +77,13 @@ public class Card {
     private String gradientEndColor;
 
     @Column(name = "balance") // or "solde" if you prefer
-    private double balance;
+    private Double balance;
+
+    @Column(name = "has_active_travel_plan")
+    private Boolean hasActiveTravelPlan = false;
+
+    @Column(name = "cvv_requested")
+    private Boolean cvvRequested = false;
 
     @ManyToOne
     private CardPack cardPack;

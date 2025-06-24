@@ -7,6 +7,7 @@ import hps.ma.userservice.dao.repositories.CardholderReository;
 import hps.ma.userservice.dto.change_password.ChangePasswordRequest;
 import hps.ma.userservice.dto.security_code.SecurityCodeRequest;
 import hps.ma.userservice.services.CardholderService;
+import hps.ma.userservice.services.VirtualCardOtpService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,7 @@ public class CardholderController {
     private final CardholderReository cardholderReository;
     private final PasswordEncoder passwordEncoder;
     private final OtpBatchJob otpBatchJob;
+    private final VirtualCardOtpService virtualCardOtpService;
 
 
     @PreAuthorize("hasRole('CARDHOLDER')")
@@ -147,5 +149,86 @@ public class CardholderController {
     }
 
 
+    @PreAuthorize("hasRole('CARDHOLDER')")
+    @GetMapping("/me")
+    public ResponseEntity<Map<String, Object>> getMyInfo(Authentication authentication) {
+        String username = authentication.getName();
+        Optional<Cardholder> optional = cardholderReository.findByUsername(username);
+
+        if (optional.isPresent()) {
+            Cardholder cardholder = optional.get();
+            return ResponseEntity.ok(Map.of(
+                    "id", cardholder.getId(),
+                    "username", cardholder.getUsername(),
+                    "email", cardholder.getEmail()
+            ));
+        } else {
+            return ResponseEntity.status(404).body(Map.of("error", "User not found"));
+        }
+    }
+
+    
+    // ✅ Generate OTP for Virtual Card
+    @PostMapping("/virtual-card/generate-otp")
+    public ResponseEntity<?> generateVirtualCardOtp(@RequestBody Map<String, String> request) {
+        String username = request.get("username");
+
+        Optional<Cardholder> cardholderOpt = cardholderReository.findByUsername(username);
+        if (cardholderOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        }
+
+        String email = cardholderOpt.get().getEmail();
+
+        // 📨 Send OTP via batch job (reusing existing job)
+        OtpJobResult result = otpBatchJob.execute(email);
+
+        return ResponseEntity.ok(result);
+    }
+
+    // ✅ Verify OTP for Virtual Card
+    @PostMapping("/virtual-card/verify-otp")
+    public ResponseEntity<?> verifyVirtualCardOtp(@RequestBody Map<String, String> request) {
+        String username = request.get("username");
+        String otp = request.get("otp");
+
+        Optional<Cardholder> cardholderOpt = cardholderReository.findByUsername(username);
+        if (cardholderOpt.isEmpty()) {
+            return ResponseEntity.status(404).body("User not found");
+        }
+
+        String email = cardholderOpt.get().getEmail();
+
+        System.out.println("📨 Verifying Virtual Card OTP: " + otp + " for email: " + email);
+
+        OtpJobResult result = otpBatchJob.verify(email, otp);
+
+        return result.isSuccess()
+                ? ResponseEntity.ok(result)
+                : ResponseEntity.status(401).body(result);
+    }
+
+
+    @PreAuthorize("hasRole('CARDHOLDER')")
+    @PatchMapping("/biometric")
+    public ResponseEntity<?> updateBiometric(@RequestBody Map<String, Boolean> payload,
+                                             Authentication authentication) {
+        String username = authentication.getName();
+        boolean enabled = payload.getOrDefault("enabled", false);
+
+        boolean result = cardholderService.updateBiometricStatus(username, enabled);
+        return ResponseEntity.ok(Map.of("enabled", result));
+    }
+
+
+
+    
+    @PreAuthorize("hasRole('CARDHOLDER')")
+    @GetMapping("/biometric")
+    public ResponseEntity<?> getBiometric(Authentication authentication) {
+        String username = authentication.getName();
+        boolean status = cardholderService.getBiometricStatus(username);
+        return ResponseEntity.ok(Map.of("enabled", status));
+    }
 
 }

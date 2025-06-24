@@ -1,6 +1,6 @@
 package hps.ma.services;
 
-import hps.ma.feign_client.UserService;
+import hps.ma.feign_client.CardholderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -10,7 +10,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CardholderInfoService {
 
-    private final UserService cardholderFeignClient;
+    private final CardholderService cardholderFeignClient;
 
     public Long getCardholderIdByUsername(String username) {
         Map<String, Object> response = cardholderFeignClient.getCardholderIdByUsername(username);

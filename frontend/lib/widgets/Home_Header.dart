@@ -1,42 +1,60 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../services/auth/auth_service.dart';
+import '../../dto/card_dto/UserInfoDto.dart';
 
 class HomeHeader extends StatefulWidget {
-  final VoidCallback? onNotificationsPressed; // 👈 ADD THIS LINE
+  final VoidCallback? onNotificationsPressed;
+  final int unreadCount;
 
-  const HomeHeader({super.key, this.onNotificationsPressed}); // 👈 Update the constructor
+  const HomeHeader({
+    super.key,
+    this.onNotificationsPressed,
+    this.unreadCount = 0,
+  });
 
   @override
   State<HomeHeader> createState() => _HomeHeaderState();
 }
 
-
-class _HomeHeaderState extends State<HomeHeader> with SingleTickerProviderStateMixin {
+class _HomeHeaderState extends State<HomeHeader> with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+
+  String? username;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
 
-    // Initialize animation controller
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-
-    // Define a nice bounce animation
     _scaleAnimation = CurvedAnimation(
       parent: _controller,
       curve: Curves.elasticOut,
     );
-
-    // Start animation
     _controller.forward();
+
+    _loadUser();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) => _loadUser());
+  }
+
+  Future<void> _loadUser() async {
+    final user = await AuthService().loadUserInfo();
+    if (user != null && mounted) {
+      setState(() {
+        username = user.username ?? 'Cardholder';
+      });
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -50,66 +68,65 @@ class _HomeHeaderState extends State<HomeHeader> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // ✅ Avatar with green online dot
-        Stack(
-          children: [
-            const CircleAvatar(
-              radius: 28,
-              backgroundImage: AssetImage('assets/user_pic.jpg'),
-              backgroundColor: Colors.transparent,
-            ),
-            Positioned(
-              bottom: 2,
-              right: 2,
-              child: Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(width: 14),
-
-        // 🧾 Greeting & Name
+        // 👤 User icon + Greeting + Name in a Row
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                _getGreeting(),
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w500,
+              // 👤 Custom icon
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withOpacity(0.04),
                 ),
-                overflow: TextOverflow.ellipsis,
+                padding: const EdgeInsets.all(8),
+                child: Image.asset(
+                  'assets/me_user.png',
+                  fit: BoxFit.contain,
+                ),
               ),
-              const SizedBox(height: 2),
-              const Text(
-                'Nada S. Rhandor',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1E1E2D),
+              const SizedBox(width: 14),
+
+              // 👋 Greeting + Username
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _getGreeting(),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      username ?? 'Loading...',
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E1E2D),
+                        letterSpacing: -0.2,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
 
-        // 🔔 Notification Icon + animated badge
+        // 🔔 Notification icon with animation and badge
         GestureDetector(
-          onTap: widget.onNotificationsPressed, // 👈 Call the callback
+          onTap: widget.onNotificationsPressed,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -128,39 +145,47 @@ class _HomeHeaderState extends State<HomeHeader> with SingleTickerProviderStateM
                   ),
                 ),
               ),
-              Positioned(
-                top: -4,
-                right: -4,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: const Text(
-                    '3',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      height: 1,
+              if (widget.unreadCount > 0)
+                Positioned(
+                  top: -4,
+                  right: -4,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOutBack,
+                    builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: Text(
+                        '${widget.unreadCount}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          height: 1,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
       ],
     );
   }
+
 }
