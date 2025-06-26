@@ -1,7 +1,7 @@
 import { Box, useColorModeValue } from '@chakra-ui/react';
 import Sidebar from '../component/Sidebar';
 import Navbar from '../component/Navbar';
-import Footer from '../component/Footer';
+
 import Profile from '../component/Profile'; // Your previous Profile.jsx
 
 export default function AgentProfile() {
@@ -29,8 +29,6 @@ export default function AgentProfile() {
                     <Profile />
                 </Box>
 
-                {/* Footer */}
-                <Footer />
             </Box>
         </Box>
     );
