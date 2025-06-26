@@ -178,14 +178,20 @@ public class CardService {
         // 🔐 Convert type and generate secure credentials
         CardType type = CardType.valueOf(request.getType().toUpperCase());
         String cardNumber = generateCardNumber();
-        String hashedCvv = hash(generateRandomCVV());
-        String hashedPin = type == CardType.PHYSICAL ? hash(generateRandomPIN()) : null;
+
+        // ✅ Generate plain CVV and PIN
+        String plainCvv = generateRandomCVV();
+        String plainPin = type == CardType.PHYSICAL ? generateRandomPIN() : null;
+
+        // ✅ Encrypt using AESUtil
+        String encryptedCvv = AESUtil.encrypt(plainCvv);
+        String encryptedPin = plainPin != null ? AESUtil.encrypt(plainPin) : null;
 
         // 💳 Build and save the card
         Card card = Card.builder()
                 .cardNumber(cardNumber)
-                .cvv(hashedCvv)
-                .pin(hashedPin)
+                .cvv(encryptedCvv)
+                .pin(encryptedPin)
                 .type(type)
                 .status(CardStatus.NEW_REQUEST)
                 .expirationDate(calculateExpirationDate(pack.getValidityYears()))
@@ -228,7 +234,12 @@ public class CardService {
 
             cardSecurityEventProducer.sendCardRequestCreated(payload);
         }
+
+        // ✅ Optionally: Log the plain values securely for support only (never expose in production logs!)
+        System.out.println("✅ Generated CVV (for display): " + plainCvv);
+        System.out.println("✅ Generated PIN (for display): " + plainPin);
     }
+
     private Date calculateExpirationDate(Integer years) {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.YEAR, years != null ? years : 3);
