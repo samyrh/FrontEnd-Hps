@@ -9,7 +9,8 @@ class LimitSection extends StatelessWidget {
   final Function(DropdownItem) onLimitTypeChanged;
   final double selectedLimit;
   final Function(double) onLimitChanged;
-  final Map<String, double> maxLimitByType;
+  final Function(double) onChangeEnd;
+  final double maxLimit;
   final VoidCallback scrollToBottom;
 
   const LimitSection({
@@ -20,16 +21,13 @@ class LimitSection extends StatelessWidget {
     required this.onLimitTypeChanged,
     required this.selectedLimit,
     required this.onLimitChanged,
-    required this.maxLimitByType,
+    required this.onChangeEnd,
+    required this.maxLimit,
     required this.scrollToBottom,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final double maxLimit = selectedLimitType != null
-        ? (maxLimitByType[selectedLimitType!.label] ?? 5000)
-        : 5000;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -151,6 +149,9 @@ class LimitSection extends StatelessWidget {
                           max: maxLimit,
                           onChanged: (val) {
                             onLimitChanged(val.clamp(0, maxLimit));
+                          },
+                          onChangeEnd: (val) {
+                            onChangeEnd(val.clamp(0, maxLimit));
                           },
                         ),
                       ),
