@@ -6,9 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/CustomDropdown.dart';
 import '../widgets/OtpVerificationDialog.dart';
+import '../widgets/PhysicalCard/card_info_section.dart';
+import '../widgets/PhysicalCard/flippable_card.dart';
+import '../widgets/PhysicalCard/helpers.dart';
+import '../widgets/PhysicalCard/limit_section.dart';
+import '../widgets/PhysicalCard/pin_popup.dart';
+import '../widgets/PhysicalCard/security_settings_section.dart';
 import '../widgets/Toast.dart';
 import '../widgets/UltraSwitch.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../services/card_service/card_service.dart';
+import '../../dto/card_dto/card_model.dart';
 
 //test
 class AlwaysDisabledFocusNode extends FocusNode {
@@ -32,7 +40,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   late Animation<double> _animation;
   bool isFront = true;
   bool showPinPopup = false;
-  int countdown = 5;
+  int cvvCountdown = 5;
+  int pinCountdown = 5;
   bool isCvvRevealed = false;
   bool isContactlessEnabled = true;
   bool isEcommerceEnabled = true;
@@ -89,6 +98,15 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  CardModel? card;
+  bool isLoading = true;
+  String? errorMessage;
+  bool showCvv = false;
+  bool showCvvPopup = false;
+  String? modalCvv;
+  String? modalPin;
+
   @override
   void initState() {
     super.initState();
@@ -99,7 +117,35 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     _animation = Tween<double>(begin: 0, end: pi).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
+    _fetchCard();
   }
+
+  Future<void> _fetchCard() async {
+    if (widget.cardId == null) {
+      setState(() {
+        isLoading = false;
+        errorMessage = 'No card ID provided.';
+      });
+      return;
+    }
+    try {
+      final fetchedCard = await CardService().fetchCardById(widget.cardId!);
+      setState(() {
+        card = fetchedCard;
+        isLoading = false;
+        errorMessage = null;
+        // Update controllers with fetched values
+        _cvvController.text = card?.cvv != null ? '•••' : '';
+        _pinController.text = card?.pin != null ? '••••' : '';
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        errorMessage = e.toString();
+      });
+    }
+  }
+
   void _flipCard() {
     if (isBlocked) {
       showCupertinoGlassToast(
@@ -110,13 +156,17 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       );
       return;
     }
-
+    setState(() {
+      isFront = !isFront;
+      if (isFront) {
+        showCvv = false; // Always hide CVV when flipping to front
+      }
+    });
     if (isFront) {
-      _controller.forward();
-    } else {
       _controller.reverse();
+    } else {
+      _controller.forward();
     }
-    setState(() => isFront = !isFront);
   }
   void _revealCVV() {
     if (isBlocked) {
@@ -128,30 +178,24 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       );
       return;
     }
-
-    if (isCvvRevealed) {
-      _cvvController.text = '•••';
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (!isFront) _flipCard();
-      });
-      setState(() => isCvvRevealed = false);
-    } else {
-      _cvvController.text = '527';
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (isFront) _flipCard();
-      });
-      setState(() => isCvvRevealed = true);
-
-      Timer(const Duration(seconds: 5), () {
-        if (mounted && isCvvRevealed) {
-          _cvvController.text = '•••';
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (!isFront) _flipCard();
-          });
-          setState(() => isCvvRevealed = false);
+    setState(() {
+      showCvvPopup = true;
+      cvvCountdown = 5;
+      modalCvv = card?.cvv ?? '';
+    });
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        cvvCountdown--;
+        if (cvvCountdown == 0) {
+          showCvvPopup = false;
+          timer.cancel();
         }
       });
-    }
+    });
   }
   void _revealPINPopup() {
     if (isBlocked) {
@@ -163,21 +207,19 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       );
       return;
     }
-
     setState(() {
       showPinPopup = true;
-      countdown = 5;
+      pinCountdown = 5;
+      modalPin = card?.pin ?? '';
     });
-
     Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-
       setState(() {
-        countdown--;
-        if (countdown == 0) {
+        pinCountdown--;
+        if (pinCountdown == 0) {
           showPinPopup = false;
           timer.cancel();
         }
@@ -358,8 +400,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _dateLabel("Start", today),
-                        if (tempEnd != null) _dateLabel("End", tempEnd!),
+                        dateLabel("Start", today),
+                        if (tempEnd != null) dateLabel("End", tempEnd!),
                       ],
                     ),
                     const SizedBox(height: 18),
@@ -607,6 +649,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
         controller: controller,
         readOnly: true,
         obscureText: isObscured,
+        maxLength: 4, // <-- Add this line
         focusNode: AlwaysDisabledFocusNode(),
         style: const TextStyle(
           fontSize: 14,
@@ -704,7 +747,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
             TextEditingController(text: pin),
             Icons.key,
             isObscured: true,
-            onTapSuffix: _revealPINPopup,
+            // Remove onTapSuffix if you don't want to reveal PIN
+            // Add maxLength: 4 to the TextField
           ),
       ],
     );
@@ -1193,7 +1237,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
-                      "You’ll receive an email once your new card is ready for pickup at your agency.",
+                      "You'll receive an email once your new card is ready for pickup at your agency.",
                       style: TextStyle(
                         fontSize: 14.7,
                         fontWeight: FontWeight.w500,
@@ -1282,7 +1326,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    "To continue safely, you may request a new card. You’ll receive a confirmation email and be invited to retrieve your new card from the nearest banking agency.",
+                    "To continue safely, you may request a new card. You'll receive a confirmation email and be invited to retrieve your new card from the nearest banking agency.",
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14.5, color: Colors.black54, height: 1.55),
                   ),
@@ -1581,7 +1625,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           ),
           const SizedBox(height: 8),
           const Text(
-            "We’ve received your request for a new card and it is being processed. You’ll be notified once it’s ready.",
+            "We've received your request for a new card and it is being processed. You'll be notified once it's ready.",
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13.5,
@@ -2501,7 +2545,14 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: cardGradient,
+        gradient: LinearGradient(
+          colors: [
+            Color(int.parse(card!.gradientStartColor.replaceFirst('#', '0xff'))),
+            Color(int.parse(card!.gradientEndColor.replaceFirst('#', '0xff'))),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
@@ -2509,6 +2560,63 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
         ],
       ),
       child: child,
+    );
+  }
+  Widget _buildCvvPopup() {
+    return Positioned.fill(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          color: Colors.black.withOpacity(0.4),
+          child: Center(
+            child: AnimatedScale(
+              scale: showCvvPopup ? 1.0 : 0.95,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutBack,
+              child: Container(
+                width: 280,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.75),
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.4),
+                        blurRadius: 30,
+                        spreadRadius: 4)
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text("Your CVV",
+                        style: TextStyle(fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white70)),
+                    const SizedBox(height: 14),
+                    Text(modalCvv ?? '',
+                        style: const TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 6,
+                          shadows: [
+                            Shadow(color: Colors.white24, blurRadius: 6),
+                            Shadow(color: Colors.black45, offset: Offset(0, 1)),
+                          ],
+                        )),
+                    const SizedBox(height: 16),
+                    Text("This will close in $cvvCountdown sec",
+                        style: const TextStyle(fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white60)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
   Widget _buildPinPopup() {
@@ -2524,8 +2632,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
               curve: Curves.easeOutBack,
               child: Container(
                 width: 280,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 28),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.75),
                   borderRadius: BorderRadius.circular(22),
@@ -2544,8 +2651,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                             fontWeight: FontWeight.w500,
                             color: Colors.white70)),
                     const SizedBox(height: 14),
-                    const Text("9241",
-                        style: TextStyle(
+                    Text(modalPin ?? '',
+                        style: const TextStyle(
                           fontSize: 34,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -2556,7 +2663,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                           ],
                         )),
                     const SizedBox(height: 16),
-                    Text("This will close in $countdown sec",
+                    Text("This will close in $pinCountdown sec",
                         style: const TextStyle(fontSize: 13,
                             fontWeight: FontWeight.w400,
                             color: Colors.white60)),
@@ -3035,6 +3142,22 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
         ? 1.0 - (_scrollController.offset / -150)
         : 1.0;
 
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (errorMessage != null) {
+      return Scaffold(
+        body: Center(child: Text(errorMessage!)),
+      );
+    }
+    if (card == null) {
+      return Scaffold(
+        body: Center(child: Text('Card not found.')),
+      );
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
@@ -3079,17 +3202,76 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                     scale: bounceScale.clamp(0.96, 1.02),
                     duration: const Duration(milliseconds: 100),
                     curve: Curves.easeOut,
-                    child: _buildCard(),
+                    child: FlippableCard(
+                      animation: _animation,
+                      isRequestSent: isRequestSent,
+                      cardGradient: LinearGradient(
+                        colors: [
+                          Color(int.parse(card!.gradientStartColor.replaceFirst('#', '0xff'))),
+                          Color(int.parse(card!.gradientEndColor.replaceFirst('#', '0xff'))),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      onTap: _flipCard,
+                      cardholderName: card?.cardholderName ?? '',
+                      cardNumber: card?.cardNumber ?? '',
+                      expiryDate: card?.expirationDate ?? '',
+                      cvv: card?.cvv ?? '',
+                      packName: card?.cardPack.label ?? '',
+                      showCvv: false, // Always false, never reveal CVV on card
+                    ),
                   ),
 
-                  _buildInfoSection(),
+                  CardInfoSection(
+                    isRequestSent: isRequestSent,
+                    cvvController: _cvvController,
+                    pinController: _pinController,
+                    onRevealCvv: _revealCVV,
+                    isCvvRevealed: isCvvRevealed,
+                    onRevealPin: _revealPINPopup,
+                    cardholderName: card?.cardholderName ?? '',
+                    cardNumber: card?.cardNumber ?? '',
+                    expiryDate: card?.expirationDate ?? '',
+                    cvv: card?.cvv ?? '',
+                    pin: card?.pin ?? '',
+                  ),
 
                   if (!isRequestSent) ...[
-                    _buildLimitSection(),
-                    _buildSectionTitle("Security Settings"),
-                    _buildContactlessToggle(),
-                    _buildEcommerceToggle(),
-                    _buildTpeToggle(),
+                    LimitSection(
+                      isBlocked: isBlocked,
+                      selectedLimitType: selectedLimitType,
+                      limitTypes: limitTypes,
+                      onLimitTypeChanged: (value) {
+                        setState(() {
+                          selectedLimitType = value;
+                          selectedLimit = min(selectedLimit, maxLimitByType[value.label] ?? 500);
+                        });
+                      },
+                      selectedLimit: selectedLimit,
+                      onLimitChanged: (value) {
+                        setState(() {
+                          selectedLimit = value;
+                        });
+                      },
+                      maxLimitByType: maxLimitByType,
+                      scrollToBottom: _scrollToBottom,
+                    ),
+                    SecuritySettingsSection(
+                      isBlocked: isBlocked,
+                      isContactlessEnabled: isContactlessEnabled,
+                      isEcommerceEnabled: isEcommerceEnabled,
+                      isTpePaymentEnabled: isTpePaymentEnabled,
+                      onContactlessChanged: (val) {
+                        setState(() => isContactlessEnabled = val);
+                      },
+                      onEcommerceChanged: (val) {
+                        setState(() => isEcommerceEnabled = val);
+                      },
+                      onTpeChanged: (val) {
+                        setState(() => isTpePaymentEnabled = val);
+                      },
+                    ),
                     _buildBlockCardSection(),
                   ],
 
@@ -3135,7 +3317,10 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           ),
 
           // 🔐 PIN Popup
-          if (showPinPopup) _buildPinPopup(),
+          if (showPinPopup)
+            _buildPinPopup(),
+          if (showCvvPopup)
+            _buildCvvPopup(),
         ],
       ),
     );
