@@ -848,5 +848,41 @@ public class CardService {
         }
     }
 
+    public void updatePhysicalCardLimits(Long cardId, UpdatePhysicalLimitsRequest request) {
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found"));
+
+        // Update limits
+        card.setDailyLimit(request.getNewDailyLimit());
+        card.setMonthlyLimit(request.getNewMonthlyLimit());
+        card.setAnnualLimit(request.getNewAnnualLimit());
+
+        cardRepository.save(card);
+
+        Long cardholderId = card.getCardholderId();
+        Map<String, Object> user = cardholderService.getCardholderById(cardholderId);
+        String cardholderName = (String) user.get("cardholderName");
+
+        String message = "Limits updated for physical card " + card.getCardNumber() + " → " +
+                "Daily: " + request.getNewDailyLimit() + ", " +
+                "Monthly: " + request.getNewMonthlyLimit() + ", " +
+                "Annual: " + request.getNewAnnualLimit();
+
+        EventPayload payload = EventPayload.builder()
+                .message(message)
+                .sentAt(new Date())
+                .senderType(SenderType.CARDHOLDER)
+                .category(EventCategory.PHYSICAL_CARD_LIMITS_UPDATED)
+                .senderId(cardholderId)
+                .cardId(cardId)
+                .build();
+
+        // Notify all agents
+        List<AgentDto> agents = agentService.getAllAgents();
+        for (AgentDto agent : agents) {
+            payload.setRecipientId(agent.getId());
+            cardSecurityEventProducer.sendPhysicalCardLimitsUpdated(payload);
+        }
+    }
 
 }
