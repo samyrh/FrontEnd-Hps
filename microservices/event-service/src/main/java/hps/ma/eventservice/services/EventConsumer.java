@@ -358,4 +358,30 @@ public class EventConsumer {
         }
     }
 
+
+    @KafkaListener(topics = "card.physical.limits.updated", groupId = "event-service")
+    public void onPhysicalCardLimitsUpdated(String json) {
+        try {
+            EventPayload payload = objectMapper.readValue(json, EventPayload.class);
+
+            // 🔄 Save the event to the DB
+            storeEvent(payload);
+
+            // 🖨️ Log the update info
+            System.out.println("🔔 Physical card limits updated:");
+            System.out.println("    → Username: " + payload.getUsername());
+            System.out.println("    → Email: " + payload.getEmail());
+            System.out.println("    → Card ID: " + payload.getCardId());
+            System.out.println("    → Message: " + payload.getMessage());
+
+            if (payload.getCategory() == EventCategory.PHYSICAL_CARD_LIMITS_UPDATED) {
+                System.out.println("📮 Event Category: PHYSICAL_CARD_LIMITS_UPDATED");
+                // No email needed
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to process card.physical.limits.updated event: " + e.getMessage());
+        }
+    }
+
 }
