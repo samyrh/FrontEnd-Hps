@@ -71,6 +71,10 @@ public class CardSecurityEventProducer {
         payload.setCategory(EventCategory.CVV_REQUESTED);
         sendToTopic("card.cvv.requested", payload);
     }
+    public void sendPhysicalCardLimitsUpdated(EventPayload payload) {
+        payload.setCategory(EventCategory.PHYSICAL_CARD_LIMITS_UPDATED);
+        sendToTopic("card.physical.limits.updated", payload);
+    }
 
 
     // Internal shared method for Kafka publishing
