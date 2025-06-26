@@ -1,7 +1,6 @@
 import { Box, useColorModeValue } from '@chakra-ui/react';
 import Sidebar from '../component/Sidebar';
 import Navbar from '../component/Navbar';
-import Footer from '../component/Footer';
 import CardSummaryPanel from '../component/CardSummaryPanel';
 import CardTable from '../component/CardTable'; // ✅ Make sure this is created
 
@@ -26,8 +25,6 @@ export default function Cards() {
                     <CardTable /> {/* ✅ Display the card table below the summary */}
                 </Box>
 
-                {/* Footer */}
-                <Footer />
             </Box>
         </Box>
     );
