@@ -3,6 +3,7 @@ import 'package:hps_direct/screens/NewCard.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../dto/card_dto/ReplaceVirtualCardRequest.dart';
+import '../../dto/card_dto/UpdatePhysicalCardLimitsRequest.dart';
 import '../../dto/card_dto/card_request_dto.dart';
 import '../../dto/card_dto/card_model.dart';
 
@@ -236,4 +237,39 @@ class CardService {
       throw Exception("Failed to cancel virtual card.");
     }
   }
+  Future<bool> updatePhysicalCardLimits({
+    required String cardId,
+    required UpdatePhysicalCardLimitsRequest request,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+
+    if (token == null) throw Exception("Not authenticated.");
+
+    final uri = Uri.parse("$_baseUrl/api/cards/physical-card/$cardId/update-limits");
+
+    try {
+      final response = await http.put(
+        uri,
+        headers: {
+          'Authorization': "Bearer $token",
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(request.toJson()),
+      );
+
+      if (response.statusCode == 200) {
+        print("✅ Physical card limits updated.");
+        return true;
+      } else {
+        print("❌ Failed to update physical card limits: ${response.statusCode}");
+        print("🔍 Body: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("❌ Network error: $e");
+      return false;
+    }
+  }
+
 }
