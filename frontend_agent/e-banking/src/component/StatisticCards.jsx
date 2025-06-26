@@ -11,7 +11,7 @@ import {
 import { AddIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import { FaUsers, FaUserPlus, FaHeart, FaCircle } from 'react-icons/fa';
 
-export default function StatisticCards() {
+export default function StatisticCards({ onAddUserClick }) {
     const cardBg = useColorModeValue('white', '#141f52');
     const textColor = useColorModeValue('black', 'white');
 
@@ -24,10 +24,10 @@ export default function StatisticCards() {
                     bg={useColorModeValue('purple.100', 'purple.500')}
                     color={useColorModeValue('purple.800', 'white')}
                     _hover={{ bg: useColorModeValue('purple.200', 'purple.600') }}
+                    onClick={onAddUserClick} // 🔁 trigger the parent action
                 >
                     Add User
                 </Button>
-
             </Flex>
 
             {/* Statistic Cards */}
