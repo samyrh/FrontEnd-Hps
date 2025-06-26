@@ -1,7 +1,6 @@
 import { Box, useColorModeValue } from '@chakra-ui/react';
 import Sidebar from '../component/Sidebar';
 import Navbar from '../component/Navbar';
-import Footer from '../component/Footer';
 import TravelPlansTable from '../component/TravelPlansTable'; // ✅ Use the table we just created
 
 export default function TravelPlan() {
@@ -28,9 +27,6 @@ export default function TravelPlan() {
                 >
                     <TravelPlansTable />
                 </Box>
-
-                {/* Footer aligned below everything */}
-                <Footer />
             </Box>
         </Box>
     );
