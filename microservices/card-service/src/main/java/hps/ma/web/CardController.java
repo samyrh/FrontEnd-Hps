@@ -188,7 +188,16 @@ public class CardController {
         }
     }
 
-    // Add this inside your existing CardController class
+    @PutMapping("/physical-card/{cardId}/update-limits")
+    public ResponseEntity<?> updatePhysicalCardLimits(@PathVariable Long cardId,
+                                                      @RequestBody UpdatePhysicalLimitsRequest request) {
+        try {
+            cardService.updatePhysicalCardLimits(cardId, request);
+            return ResponseEntity.ok("✅ Physical card limits updated successfully.");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("❌ Error: " + e.getMessage());
+        }
+    }
 
     @PutMapping("/virtual-card/{cardId}/block")
     public ResponseEntity<String> blockVirtualCard(@PathVariable Long cardId,
