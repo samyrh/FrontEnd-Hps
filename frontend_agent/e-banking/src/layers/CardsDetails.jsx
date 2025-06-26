@@ -1,7 +1,6 @@
 import { Box, useColorModeValue } from '@chakra-ui/react';
 import Sidebar from '../component/Sidebar';
 import Navbar from '../component/Navbar';
-import Footer from '../component/Footer';
 import CardInfo from '../component/CardInfo'; // ✅ New modular component
 
 export default function CardsDetails() {
@@ -28,9 +27,6 @@ export default function CardsDetails() {
                 >
                     <CardInfo />
                 </Box>
-
-                {/* Footer aligned below everything */}
-                <Footer />
             </Box>
         </Box>
     );
