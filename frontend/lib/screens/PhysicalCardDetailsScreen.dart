@@ -4,13 +4,13 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../dto/card_dto/UpdatePhysicalCardLimitsRequest.dart';
 import '../widgets/CustomDropdown.dart';
 import '../widgets/OtpVerificationDialog.dart';
 import '../widgets/PhysicalCard/card_info_section.dart';
 import '../widgets/PhysicalCard/flippable_card.dart';
 import '../widgets/PhysicalCard/helpers.dart';
 import '../widgets/PhysicalCard/limit_section.dart';
-import '../widgets/PhysicalCard/pin_popup.dart';
 import '../widgets/PhysicalCard/security_settings_section.dart';
 import '../widgets/Toast.dart';
 import '../widgets/UltraSwitch.dart';
@@ -58,10 +58,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   bool deleteRequestSent = false;
   bool isRequestSent = false;
   final String username = 'nada@example.com';
-  final TextEditingController _cvvController = TextEditingController(
-      text: '•••');
-  final TextEditingController _pinController = TextEditingController(
-      text: '••••');
+  final TextEditingController _cvvController = TextEditingController();
+  final TextEditingController _pinController = TextEditingController();
 
   DropdownItem? selectedLimitType;
   DropdownItem? blockReason;
@@ -84,7 +82,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   ];
 
 
-  double selectedLimit = 500;
+  double selectedLimit = 0.0;
   bool isBlocked = false;
 
 
@@ -135,8 +133,29 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
         isLoading = false;
         errorMessage = null;
         // Update controllers with fetched values
-        _cvvController.text = card?.cvv != null ? '•••' : '';
-        _pinController.text = card?.pin != null ? '••••' : '';
+        _cvvController.text = '•••';
+        _pinController.text = '••••';
+
+        // Only set selectedLimitType if null or not in limitTypes
+        if (selectedLimitType == null ||
+            !limitTypes.any((item) => item.label == selectedLimitType!.label)) {
+          selectedLimitType = limitTypes.first;
+        }
+
+        // Set selectedLimit to match the current selectedLimitType
+        if (selectedLimitType != null && card != null) {
+          switch (selectedLimitType!.label) {
+            case 'Daily Spending Limit':
+              selectedLimit = card!.dailyLimit;
+              break;
+            case 'Monthly Spending Cap':
+              selectedLimit = card!.monthlyLimit;
+              break;
+            case 'Online Purchase Restriction':
+              selectedLimit = card!.annualLimit;
+              break;
+          }
+        }
       });
     } catch (e) {
       setState(() {
@@ -977,7 +996,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                             height: 1.55,
                           ),
                           textAlign: TextAlign.center,
-                        ),
+                        ), 
                       ),
                       const SizedBox(height: 24),
                       Container(
@@ -3238,24 +3257,105 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   ),
 
                   if (!isRequestSent) ...[
-                    LimitSection(
-                      isBlocked: isBlocked,
-                      selectedLimitType: selectedLimitType,
-                      limitTypes: limitTypes,
-                      onLimitTypeChanged: (value) {
-                        setState(() {
-                          selectedLimitType = value;
-                          selectedLimit = min(selectedLimit, maxLimitByType[value.label] ?? 500);
-                        });
+                    Builder(
+                      builder: (context) {
+                        if (card == null || selectedLimitType == null) {
+                          return const SizedBox.shrink();
+                        }
+
+                        double maxLimit = 0.0;
+                        switch (selectedLimitType!.label) {
+                          case 'Daily Spending Limit':
+                            maxLimit = card!.cardPack.limitDaily;
+                            break;
+                          case 'Monthly Spending Cap':
+                            maxLimit = card!.cardPack.limitMonthly;
+                            break;
+                          case 'Online Purchase Restriction':
+                            maxLimit = card!.cardPack.limitAnnual;
+                            break;
+                        }
+
+                        return LimitSection(
+                          isBlocked: isBlocked,
+                          selectedLimitType: selectedLimitType,
+                          limitTypes: limitTypes,
+                          onLimitTypeChanged: (value) {
+                            setState(() {
+                              selectedLimitType = value;
+                              // When limit type changes, reset selectedLimit to the card's current value
+                              switch (value.label) {
+                                case 'Daily Spending Limit':
+                                  selectedLimit = card!.dailyLimit;
+                                  break;
+                                case 'Monthly Spending Cap':
+                                  selectedLimit = card!.monthlyLimit;
+                                  break;
+                                case 'Online Purchase Restriction':
+                                  selectedLimit = card!.annualLimit;
+                                  break;
+                              }
+                            });
+                          },
+                          selectedLimit: selectedLimit,
+                          onLimitChanged: (value) {
+                            setState(() {
+                              selectedLimit = value;
+                            });
+                          },
+                          onChangeEnd: (value) async {
+                            final oldValue = selectedLimit;
+                            setState(() {
+                              selectedLimit = value;
+                            });
+                            if (card == null) return;
+                            double newDaily = card!.dailyLimit;
+                            double newMonthly = card!.monthlyLimit;
+                            double newAnnual = card!.annualLimit;
+                            switch (selectedLimitType!.label) {
+                              case 'Daily Spending Limit':
+                                newDaily = value;
+                                break;
+                              case 'Monthly Spending Cap':
+                                newMonthly = value;
+                                break;
+                              case 'Online Purchase Restriction':
+                                newAnnual = value;
+                                break;
+                            }
+                            final success = await CardService().updatePhysicalCardLimits(
+                              cardId: card!.id.toString(),
+                              request: UpdatePhysicalCardLimitsRequest(
+                                newDailyLimit: newDaily,
+                                newMonthlyLimit: newMonthly,
+                                newAnnualLimit: newAnnual,
+                              ),
+                            );
+                            if (!mounted) return;
+                            if (success) {
+                              showCupertinoGlassToast(
+                                context,
+                                "Limit updated successfully!",
+                                isSuccess: true,
+                                position: ToastPosition.top,
+                              );
+                              await _fetchCard();
+                            } else {
+                              showCupertinoGlassToast(
+                                context,
+                                "Failed to update limit.",
+                                isSuccess: false,
+                                position: ToastPosition.top,
+                              );
+                              setState(() {
+                                selectedLimit = oldValue;
+                              });
+                            }
+                          },
+                          maxLimit: maxLimit,
+                          scrollToBottom: _scrollToBottom,
+                        );
                       },
-                      selectedLimit: selectedLimit,
-                      onLimitChanged: (value) {
-                        setState(() {
-                          selectedLimit = value;
-                        });
-                      },
-                      maxLimitByType: maxLimitByType,
-                      scrollToBottom: _scrollToBottom,
                     ),
                     SecuritySettingsSection(
                       isBlocked: isBlocked,
