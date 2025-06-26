@@ -6,7 +6,7 @@ import Navbar from '../component/Navbar';
 import StatCardGrid from '../component/StatCardGrid';
 import ComplexTable from '../component/ComplexTable';
 import MiniCalendar from '../component/MiniCalendar';
-import Footer from '../component/Footer';
+
 export default function MainDashboard() {
     const bg = useColorModeValue('#f4f7fe', '#0b1437');
 
@@ -40,7 +40,6 @@ export default function MainDashboard() {
                     </Flex>
                 </Box>
             </Box>
-            <Footer />
 
         </Box>
     );
