@@ -80,7 +80,6 @@ class SecurityOptionsService {
       throw Exception("Failed to update security option: ${response.body}");
     }
   }
-  /// ✅ Fetches ecommerce security options for virtual cards
   Future<List<VirtualSecurityOption>> fetchVirtualCardSecurityOptions() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -141,7 +140,6 @@ class SecurityOptionsService {
       throw Exception("Failed to fetch virtual card security option by ID.");
     }
   }
-
   Future<void> setEcommerceStatus(String cardId, bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -161,7 +159,6 @@ class SecurityOptionsService {
       throw Exception("Failed to update e-commerce status: "+response.body);
     }
   }
-
   Future<void> updateSecurityOptions(UpdateSecurityOptionRequest request) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -225,6 +222,32 @@ class SecurityOptionsService {
 
     if (response.statusCode != 200) {
       throw Exception("Failed to unblock virtual card: ${response.body}");
+    }
+  }
+  Future<void> blockPhysicalCard(String cardId, String blockReason) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+    if (token == null) {
+      throw Exception("Not authenticated.");
+    }
+
+    final uri = Uri.parse("$_baseUrl/api/cards/physical-card/$cardId/block");
+
+    final body = {
+      'blockReason': blockReason, // This must match your backend DTO field
+    };
+
+    final response = await http.put(
+      uri,
+      headers: {
+        'Authorization': "Bearer $token",
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to block physical card: ${response.body}");
     }
   }
 
