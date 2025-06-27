@@ -115,9 +115,10 @@ class CustomDropdown extends StatelessWidget {
 
 class DropdownItem {
   final String label;
+  final String? value;
   final IconData? icon;
 
-  const DropdownItem({required this.label, required this.icon});
+  const DropdownItem({required this.label, this.value, this.icon});
 }
 
 class _DropdownModal extends StatelessWidget {
