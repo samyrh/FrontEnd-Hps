@@ -16,6 +16,7 @@ import '../widgets/Toast.dart';
 import '../widgets/UltraSwitch.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../services/card_service/card_service.dart';
+import '../../services/card_service/CardSecurityService.dart';
 import '../../dto/card_dto/card_model.dart';
 
 //test
@@ -74,11 +75,10 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   ];
 
   final List<DropdownItem> blockReasons = [
-    DropdownItem(label: 'Temporary Block', icon: Icons.timelapse),
-    DropdownItem(label: 'Permanent Block', icon: Icons.cancel),
-    DropdownItem(label: 'Card Lost – Cannot Find It', icon: Icons.report_gmailerrorred),
-    DropdownItem(label: 'Card Stolen – Unauthorized Use', icon: Icons.lock_person),
-    DropdownItem(label: 'Card Damaged – Not Functional', icon: Icons.settings_backup_restore),
+    DropdownItem(label: 'Permanent Block', value: 'PERMANENT_BLOCK', icon: Icons.cancel),
+    DropdownItem(label: 'Card Lost – Cannot Find It', value: 'LOST', icon: Icons.report_gmailerrorred),
+    DropdownItem(label: 'Card Stolen – Unauthorized Use', value: 'STOLEN', icon: Icons.lock_person),
+    DropdownItem(label: 'Card Damaged – Not Functional', value: 'DAMAGED', icon: Icons.settings_backup_restore),
   ];
 
 
@@ -791,7 +791,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                 icon: Icons.tune,
                 selectedItem: selectedLimitType,
                 items: limitTypes,
-                onChanged: (value) {
+                onChanged: (value) async {
                   setState(() {
                     selectedLimitType = value;
                     selectedLimit = min(selectedLimit, maxLimitByType[value.label] ?? 500);
@@ -1085,8 +1085,43 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                 backgroundColor: Colors.redAccent,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
-                              onPressed: () {
+                              onPressed: () async {
                                 Navigator.pop(context);
+                                
+                                print("🔍 Permanent Block Dialog - blockReason: ${blockReason?.label}");
+                                print("🔍 Permanent Block Dialog - blockReason value: ${blockReason?.value}");
+                                
+                                // Call the service to block the card
+                                if (widget.cardId != null && blockReason?.value != null) {
+                                  try {
+                                    print("🔒 Permanent Block - Card ID: ${widget.cardId}");
+                                    print("🔒 Permanent Block - Reason: ${blockReason!.value}");
+                                    
+                                    await SecurityOptionsService().blockPhysicalCard(
+                                      widget.cardId!,
+                                      blockReason!.value!,
+                                    );
+                                    
+                                    showCupertinoGlassToast(
+                                      context,
+                                      "Card blocked successfully!",
+                                      isSuccess: true,
+                                      position: ToastPosition.top,
+                                    );
+                                  } catch (e) {
+                                    print("❌ Permanent Block failed: $e");
+                                    showCupertinoGlassToast(
+                                      context,
+                                      "Failed to block card: ${e.toString()}",
+                                      isSuccess: false,
+                                      position: ToastPosition.top,
+                                    );
+                                  }
+                                } else {
+                                  print("❌ Permanent Block - Missing cardId or reason value");
+                                  print("❌ CardId: ${widget.cardId}");
+                                  print("❌ Reason value: ${blockReason?.value}");
+                                }
                               },
                               child: const Text("Understood", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                             ),
@@ -1385,11 +1420,19 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.pop(context);
+                            
+                            print("🔍 Card Lost Dialog - reasonLabel: $reasonLabel");
+                            print("🔍 Card Lost Dialog - blockReason before: ${blockReason?.label}");
+                            
+                            // Get the selected reason with its value
+                            final selectedReason = blockReasons.firstWhere((item) => item.label == reasonLabel);
+                            print("🔍 Card Lost Dialog - selectedReason value: ${selectedReason.value}");
+                            
                             setState(() {
                               lostConfirmed = true;
-                              blockReason = blockReasons.firstWhere((item) => item.label == reasonLabel);
+                              blockReason = selectedReason;
                               isBlocked = true;
                               showRequestCard = true;
                               blockStartDate = null;
@@ -1397,6 +1440,42 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                               isPermanent = true;
                               confirmedPermanentBlock = false;
                             });
+                            
+                            print("🔍 Card Lost Dialog - blockReason after: ${blockReason?.label}");
+                            print("🔍 Card Lost Dialog - blockReason value after: ${blockReason?.value}");
+                            
+                            // Call the service to block the card
+                            if (widget.cardId != null && selectedReason.value != null) {
+                              try {
+                                print("🔒 Card Lost/Stolen/Damaged - Card ID: ${widget.cardId}");
+                                print("🔒 Card Lost/Stolen/Damaged - Reason: ${selectedReason.value}");
+                                
+                                await SecurityOptionsService().blockPhysicalCard(
+                                  widget.cardId!,
+                                  selectedReason.value!,
+                                );
+                                
+                                showCupertinoGlassToast(
+                                  context,
+                                  "Card blocked successfully!",
+                                  isSuccess: true,
+                                  position: ToastPosition.top,
+                                );
+                              } catch (e) {
+                                print("❌ Card Lost/Stolen/Damaged failed: $e");
+                                showCupertinoGlassToast(
+                                  context,
+                                  "Failed to block card: ${e.toString()}",
+                                  isSuccess: false,
+                                  position: ToastPosition.top,
+                                );
+                              }
+                            } else {
+                              print("❌ Card Lost/Stolen/Damaged - Missing cardId or reason value");
+                              print("❌ CardId: ${widget.cardId}");
+                              print("❌ Reason value: ${selectedReason.value}");
+                            }
+                            
                             _scrollToBottom();
                           },
                           child: const Text("Confirm", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
@@ -1757,18 +1836,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
 
                     // 🛑 2. Prevent unblocking if Temporary Block not finished
                     if (!val && blockReason != null) {
-                      if (blockReason!.label == 'Temporary Block' &&
-                          blockEndDate != null &&
-                          today.isBefore(blockEndDate!)) {
-                        showCupertinoGlassToast(
-                          context,
-                          "You can't unblock this card until ${blockEndDate!.toLocal().toString().split(' ')[0]}",
-                          isSuccess: false,
-                          position: ToastPosition.top,
-                        );
-                        return;
-                      }
-
                       // ✅ 3. Standard unblock confirmation modal
                       showDialog(
                         context: context,
@@ -1958,23 +2025,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                 icon: Icons.warning_amber_rounded,
                                 selectedItem: blockReason,
                                 items: blockReasons,
-                                onChanged: (value) {
+                                onChanged: (value) async {
                                   final today = DateTime.now();
-
-                                  final isTempStillActive = blockReason?.label == 'Temporary Block' &&
-                                      blockEndDate != null &&
-                                      today.isBefore(blockEndDate!) &&
-                                      value.label != 'Temporary Block';
-
-                                  if (isTempStillActive) {
-                                    showCupertinoGlassToast(
-                                      context,
-                                      "You can't change the reason until ${blockEndDate!.toLocal().toString().split(' ')[0]}",
-                                      isSuccess: false,
-                                      position: ToastPosition.top,
-                                    );
-                                    return;
-                                  }
 
                                   final isPermanentSelected = blockReason?.label == 'Permanent Block';
                                   final isLostStolenDamaged = blockReason?.label == 'Card Lost – Cannot Find It' ||
@@ -2007,6 +2059,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                   }
 
                                   if (value.label == 'Permanent Block') {
+                                    print("🔍 Permanent Block selected - value: ${value.value}");
                                     _showPermanentBlockDialog();
                                     setState(() {
                                       blockReason = value;
@@ -2016,28 +2069,18 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                       blockStartDate = null;
                                       blockEndDate = null;
                                     });
-                                    return;
-                                  }
-
-                                  if (value.label == 'Temporary Block') {
-                                    setState(() {
-                                      blockReason = value;
-                                      showRequestCard = false;
-                                      isPermanent = false;
-                                      confirmedPermanentBlock = false;
-                                      blockStartDate = null;
-                                      blockEndDate = null;
-                                    });
-                                    _pickBlockDates();
+                                    print("🔍 blockReason set to: ${blockReason?.value}");
                                     return;
                                   }
 
                                   if (value.label == 'Card Lost – Cannot Find It' ||
                                       value.label == 'Card Stolen – Unauthorized Use' ||
                                       value.label == 'Card Damaged – Not Functional') {
+                                    print("🔍 Card Lost/Stolen/Damaged selected - value: ${value.value}");
                                     setState(() {
                                       blockReason = value;
                                     });
+                                    print("🔍 blockReason set to: ${blockReason?.value}");
                                     _showCardLostDialogs(reasonLabel: value.label); // 👈 Reuse the same modal
                                     return;
                                   }
@@ -2063,49 +2106,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                     if (blockReason != null || blockStartDate != null || blockEndDate != null)
                       ...[
                         const SizedBox(height: 12),
-
-                        // Temporary Block Dates Info
-                        if (blockReason?.label == 'Temporary Block' &&
-                            blockStartDate != null &&
-                            blockEndDate != null)
-                          Builder(
-                            builder: (context) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                _scrollToBottom();
-                              });
-
-                              return Container(
-                                width: double.infinity,
-                                margin: const EdgeInsets.only(bottom: 14),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFFFF1F1), Color(0xFFFFE2E2)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.date_range, size: 18, color: Colors.redAccent),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      'Blocked from ${blockStartDate!.toLocal().toString().split(' ')[0]} to ${blockEndDate!.toLocal().toString().split(' ')[0]}',
-                                      style: const TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.redAccent,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-
                         // Warning for Permanent or Request Card
                         if ((isPermanent || showRequestCard) && blockReason?.label != 'Temporary Block')
                           Builder(
@@ -2146,7 +2146,6 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                               );
                             },
                           ),
-
                         // Request New Card Button and Delivery Span
                         if (blockReason?.label == 'Card Lost – Cannot Find It' && lostConfirmed) ...[
                           Padding(
