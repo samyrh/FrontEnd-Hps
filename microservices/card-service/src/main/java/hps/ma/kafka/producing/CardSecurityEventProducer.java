@@ -75,6 +75,10 @@ public class CardSecurityEventProducer {
         payload.setCategory(EventCategory.PHYSICAL_CARD_LIMITS_UPDATED);
         sendToTopic("card.physical.limits.updated", payload);
     }
+    public void sendPhysicalCardBlocked(EventPayload payload) {
+        payload.setCategory(EventCategory.PHYSICAL_CARD_BLOCKED);
+        sendToTopic("card.physical.card.blocked", payload);
+    }
 
 
     // Internal shared method for Kafka publishing
