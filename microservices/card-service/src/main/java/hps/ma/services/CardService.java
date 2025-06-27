@@ -847,7 +847,6 @@ public class CardService {
             cardSecurityEventProducer.sendCvvRequested(payload);
         }
     }
-
     public void updatePhysicalCardLimits(Long cardId, UpdatePhysicalLimitsRequest request) {
         Card card = cardRepository.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
@@ -882,6 +881,71 @@ public class CardService {
         for (AgentDto agent : agents) {
             payload.setRecipientId(agent.getId());
             cardSecurityEventProducer.sendPhysicalCardLimitsUpdated(payload);
+        }
+    }
+    public void blockPhysicalCard(Long cardId, BlockReason blockReason) {
+        // 1️⃣ Retrieve card
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found"));
+
+        // 2️⃣ Ensure physical card
+        if (card.getType() != CardType.PHYSICAL) {
+            throw new RuntimeException("Card is not a physical card.");
+        }
+
+        // 3️⃣ Update status based on block reason
+        card.setBlockReason(blockReason);
+        switch (blockReason) {
+            case PERMANENT_BLOCK -> card.setStatus(CardStatus.PERMANENTLY_BLOCKED);
+            case LOST -> card.setStatus(CardStatus.LOST);
+            case STOLEN -> card.setStatus(CardStatus.STOLEN);
+            case DAMAGED -> card.setStatus(CardStatus.DAMAGED);
+            default -> throw new IllegalArgumentException("Unsupported block reason for physical card.");
+        }
+
+        // 4️⃣ Disable features for security
+        card.setContactlessEnabled(false);
+        card.setEcommerceEnabled(false);
+        card.setTpeEnabled(false);
+        card.setInternationalWithdraw(false);
+
+        // 5️⃣ Save card
+        cardRepository.save(card);
+
+        // 6️⃣ Gather info for notification
+        Long cardholderId = card.getCardholderId();
+        Map<String, Object> user = cardholderService.getCardholderById(cardholderId);
+        String username = (String) user.get("cardholderName");
+        String email = (String) user.get("email");
+        String cardNumber = card.getCardNumber();
+
+        String reasonMessage = switch (blockReason) {
+            case PERMANENT_BLOCK -> "Permanent Block Requested";
+            case LOST -> "Card Reported Lost";
+            case STOLEN -> "Card Reported Stolen";
+            case DAMAGED -> "Card Reported Damaged";
+            default -> "Unknown Reason";
+        };
+
+        String fullMessage = "Physical card " + cardNumber + " belonging to cardholder " + username
+                + " has been blocked. Reason: " + reasonMessage;
+
+        // 7️⃣ Notify each agent with a separate payload
+        List<AgentDto> agents = agentService.getAllAgents();
+        for (AgentDto agent : agents) {
+            EventPayload agentPayload = EventPayload.builder()
+                    .message(fullMessage)
+                    .sentAt(new Date())
+                    .senderType(SenderType.CARDHOLDER)
+                    .category(EventCategory.PHYSICAL_CARD_BLOCKED)
+                    .senderId(cardholderId)
+                    .recipientId(agent.getId())
+                    .cardId(card.getId())
+                    .email(email)
+                    .username(username)
+                    .build();
+
+            cardSecurityEventProducer.sendPhysicalCardBlocked(agentPayload);
         }
     }
 

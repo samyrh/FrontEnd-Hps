@@ -384,4 +384,31 @@ public class EventConsumer {
         }
     }
 
+
+
+    @KafkaListener(topics = "card.physical.card.blocked", groupId = "event-service")
+    public void onPhysicalCardBlocked(String json) {
+        try {
+            EventPayload payload = objectMapper.readValue(json, EventPayload.class);
+
+            // Save to DB
+            storeEvent(payload);
+
+            // Log details
+            System.out.println("🔴 Physical card blocked:");
+            System.out.println("    → Username: " + payload.getUsername());
+            System.out.println("    → Email: " + payload.getEmail());
+            System.out.println("    → Card ID: " + payload.getCardId());
+            System.out.println("    → Reason: " + payload.getMessage());
+
+            if (payload.getCategory() == EventCategory.PHYSICAL_CARD_BLOCKED) {
+                System.out.println("📮 Event Category: PHYSICAL_CARD_BLOCKED");
+                // No email needed for this case
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to process card.physical.card.blocked event: " + e.getMessage());
+        }
+    }
+
 }

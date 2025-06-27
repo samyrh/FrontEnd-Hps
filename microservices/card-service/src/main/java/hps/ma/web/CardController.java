@@ -282,4 +282,16 @@ public class CardController {
     }
 
 
+
+    @PutMapping("/physical-card/{cardId}/block")
+    public ResponseEntity<String> blockPhysicalCard(@PathVariable Long cardId,
+                                                    @RequestBody PhysicalCardBlockRequest request) {
+        try {
+            cardService.blockPhysicalCard(cardId, request.getBlockReason());
+            return ResponseEntity.ok("✅ Physical card blocked successfully.");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("❌ Error: " + e.getMessage());
+        }
+    }
+
 }
