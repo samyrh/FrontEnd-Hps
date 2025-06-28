@@ -948,5 +948,136 @@ public class CardService {
             cardSecurityEventProducer.sendPhysicalCardBlocked(agentPayload);
         }
     }
+    public void requestPhysicalCardReplacementDueToLoss(String token, Long cardId) {
+        // 1️⃣ Extract username from token
+        String username = jwtUtil.extractUsername(token.replace("Bearer ", ""));
+        Long cardholderId = cardholderInfoService.getCardholderIdByUsername(username);
+
+        // 2️⃣ Retrieve the card
+        Card existingCard = cardRepository.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found"));
+
+        // 3️⃣ Ensure the card belongs to this user
+        if (!existingCard.getCardholderId().equals(cardholderId)) {
+            throw new RuntimeException("Unauthorized operation.");
+        }
+
+        // 4️⃣ Ensure it's a physical card
+        if (existingCard.getType() != CardType.PHYSICAL) {
+            throw new RuntimeException("Only physical cards can be replaced via this operation.");
+        }
+
+        // 5️⃣ Retrieve cardholder info
+        Map<String, Object> userInfo = cardholderService.getCardholderById(cardholderId);
+        String cardholderName = (String) userInfo.get("cardholderName");
+        String email = (String) userInfo.get("email");
+
+        // 6️⃣ Reset security features and mark as replacement requested
+        existingCard.setStatus(CardStatus.NEW_REQUEST);
+        existingCard.setContactlessEnabled(false);
+        existingCard.setEcommerceEnabled(false);
+        existingCard.setTpeEnabled(false);
+        existingCard.setInternationalWithdraw(false);
+        existingCard.setReplacementRequested(true);
+        existingCard.setBlockReason(null);
+        // 7️⃣ Save the updated card
+        cardRepository.save(existingCard);
+
+        // 8️⃣ Notify all agents
+        List<AgentDto> agents = agentService.getAllAgents();
+        for (AgentDto agent : agents) {
+            EventPayload payload = EventPayload.builder()
+                    .message("Physical card reissue requested because the card was reported LOST (Type: PHYSICAL) by "
+                            + cardholderName + " (Card: " + existingCard.getCardNumber() + ").")
+                    .sentAt(new Date())
+                    .senderType(SenderType.CARDHOLDER)
+                    .category(EventCategory.REQUEST_REPLACEMENT_PHYSICAL_CARD)
+                    .senderId(cardholderId)
+                    .recipientId(agent.getId())
+                    .cardId(existingCard.getId())
+                    .email(email)
+                    .username(cardholderName)
+                    .build();
+
+            cardSecurityEventProducer.sendPhysicalCardReplacementRequest(payload);
+        }
+    }
+    public void requestPhysicalCardReplacementDueToStolen(String token, Long cardId) {
+        String username = jwtUtil.extractUsername(token.replace("Bearer ", ""));
+        Long cardholderId = cardholderInfoService.getCardholderIdByUsername(username);
+
+        Card existingCard = cardRepository.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found"));
+
+        if (!existingCard.getCardholderId().equals(cardholderId)) {
+            throw new RuntimeException("Unauthorized operation.");
+        }
+        if (existingCard.getType() != CardType.PHYSICAL) {
+            throw new RuntimeException("Only physical cards can be replaced via this operation.");
+        }
+
+        // ✅ DO NOT change status or blockReason — keep them as is
+        // ✅ Only mark replacementRequested
+        existingCard.setReplacementRequested(true);
+
+        // 🔐 Generate new credentials
+        String newCardNumber = generateCardNumber();
+        String plainCvv = generateRandomCVV();
+        String plainPin = generateRandomPIN();
+        String encryptedCvv = AESUtil.encrypt(plainCvv);
+        String encryptedPin = AESUtil.encrypt(plainPin);
+
+        // Build replacement card
+        Card newCard = Card.builder()
+                .cardNumber(newCardNumber)
+                .cvv(encryptedCvv)
+                .pin(encryptedPin)
+                .type(CardType.PHYSICAL)
+                .status(CardStatus.NEW_REQUEST)
+                .expirationDate(existingCard.getExpirationDate())
+                .contactlessEnabled(false)
+                .ecommerceEnabled(false)
+                .tpeEnabled(false)
+                .dailyLimit(existingCard.getDailyLimit())
+                .monthlyLimit(existingCard.getMonthlyLimit())
+                .annualLimit(existingCard.getAnnualLimit())
+                .internationalWithdraw(false)
+                .isCanceled(false)
+                .cardholderId(cardholderId)
+                .cardPack(existingCard.getCardPack())
+                .gradientStartColor(existingCard.getGradientStartColor())
+                .gradientEndColor(existingCard.getGradientEndColor())
+                .balance(0.0)
+                .build();
+
+        // Save both
+        cardRepository.save(existingCard);
+        cardRepository.save(newCard);
+
+        Map<String, Object> userInfo = cardholderService.getCardholderById(cardholderId);
+        String cardholderName = (String) userInfo.get("cardholderName");
+        String email = (String) userInfo.get("email");
+
+        // Notify agents
+        List<AgentDto> agents = agentService.getAllAgents();
+        for (AgentDto agent : agents) {
+            EventPayload payload = EventPayload.builder()
+                    .message("Physical card reissue requested because the card was reported STOLEN by "
+                            + cardholderName + " (Old Card: " + existingCard.getCardNumber() + ").")
+                    .sentAt(new Date())
+                    .senderType(SenderType.CARDHOLDER)
+                    .category(EventCategory.REQUEST_REPLACEMENT_PHYSICAL_CARD)
+                    .senderId(cardholderId)
+                    .recipientId(agent.getId())
+                    .cardId(newCard.getId())
+                    .email(email)
+                    .username(cardholderName)
+                    .build();
+
+            cardSecurityEventProducer.sendPhysicalCardReplacementRequest(payload);
+        }
+
+        System.out.println("✅ New card created: " + newCardNumber + ", CVV: " + plainCvv + ", PIN: " + plainPin);
+    }
 
 }
