@@ -13,6 +13,7 @@ class CardInfoSection extends StatelessWidget {
   final String expiryDate;
   final String cvv;
   final String pin;
+  final bool hideCvvAndPin;
 
   const CardInfoSection({
     Key? key,
@@ -27,6 +28,7 @@ class CardInfoSection extends StatelessWidget {
     required this.expiryDate,
     required this.cvv,
     required this.pin,
+    this.hideCvvAndPin = false,
   }) : super(key: key);
 
   @override
@@ -59,7 +61,7 @@ class CardInfoSection extends StatelessWidget {
             TextEditingController(text: displayExpiryDate),
             Icons.calendar_today,
           ),
-        if (!isRequestSent)
+        if (!isRequestSent && !hideCvvAndPin)
           _buildInput(
             "CVV",
             TextEditingController(text: displayCvv),
@@ -68,7 +70,7 @@ class CardInfoSection extends StatelessWidget {
             onTapSuffix: onRevealCvv,
             suffixIcon: Icons.remove_red_eye_outlined,
           ),
-        if (!isRequestSent)
+        if (!isRequestSent && !hideCvvAndPin)
           _buildInput(
             "PIN",
             TextEditingController(text: displayPin),
