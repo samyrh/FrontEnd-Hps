@@ -294,4 +294,27 @@ public class CardController {
         }
     }
 
+    @PutMapping("/physical-card/{cardId}/request-replacement-due-to-loss")
+    public ResponseEntity<String> requestPhysicalCardReplacementDueToLoss(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long cardId) {
+        try {
+            cardService.requestPhysicalCardReplacementDueToLoss(token, cardId);
+            return ResponseEntity.ok("✅ Physical card replacement requested successfully.");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("❌ Error: " + e.getMessage());
+        }
+    }
+    @PutMapping("/physical-card/{cardId}/request-replacement-due-to-stolen")
+    public ResponseEntity<String> requestPhysicalCardReplacementDueToStolen(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long cardId) {
+        try {
+            cardService.requestPhysicalCardReplacementDueToStolen(token, cardId);
+            return ResponseEntity.ok("✅ Replacement requested successfully.");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("❌ Error: " + e.getMessage());
+        }
+    }
+
 }
