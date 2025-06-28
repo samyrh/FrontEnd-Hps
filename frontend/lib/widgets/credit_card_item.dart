@@ -267,14 +267,14 @@ class _CreditCardItemState extends State<CreditCardItem> with SingleTickerProvid
       padding: const EdgeInsets.only(top: 16),
       child: GestureDetector(
         onTap: () {
-          // ✅ Single tap: Navigate to details screen
-          if (widget.isDisabled) return;
+          // ✅ Always allow tap to go to details, even if disabled
           if (widget.card.type == 'PHYSICAL') {
-            context.push('/physical_card_details', extra: {'id': widget.card.id});
+            context.push('/physical_card_details', extra: {'id': widget.card.id.toString()});
           } else {
-            context.push('/virtual_card_details', extra: {'id': widget.card.id});
+            context.push('/virtual_card_details', extra: {'id': widget.card.id.toString()});
           }
         },
+
         onDoubleTap: () {
           // ✅ Double tap: Flip card
           if (!widget.isDisabled) _flipCard();
