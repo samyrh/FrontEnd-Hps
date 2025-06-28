@@ -410,5 +410,29 @@ public class EventConsumer {
             System.err.println("❌ Failed to process card.physical.card.blocked event: " + e.getMessage());
         }
     }
+    @KafkaListener(topics = "physical.card.replacement.request", groupId = "event-service")
+    public void onPhysicalCardReplacementRequested(String json) {
+        try {
+            EventPayload payload = objectMapper.readValue(json, EventPayload.class);
+
+            // ✅ Save event in DB
+            storeEvent(payload);
+
+            // 🖨️ Log event details
+            System.out.println("🔔 Physical card replacement requested:");
+            System.out.println("    → Username: " + payload.getUsername());
+            System.out.println("    → Email: " + payload.getEmail());
+            System.out.println("    → Card ID: " + payload.getCardId());
+            System.out.println("    → Message: " + payload.getMessage());
+
+            if (payload.getCategory() == EventCategory.REQUEST_REPLACEMENT_PHYSICAL_CARD) {
+                System.out.println("📮 Event Category: REQUEST_REPLACEMENT_PHYSICAL_CARD");
+                // No email logic — only storing
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to process physical.card.replacement.request event: " + e.getMessage());
+        }
+    }
 
 }
