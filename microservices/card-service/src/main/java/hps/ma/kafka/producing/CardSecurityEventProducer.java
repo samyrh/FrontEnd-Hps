@@ -42,6 +42,10 @@ public class CardSecurityEventProducer {
         sendToTopic("virtual.card.unblocked", payload);
     }
 
+    public void sendPhysicalCardReplacementRequest(EventPayload payload) {
+        payload.setCategory(EventCategory.REQUEST_REPLACEMENT_PHYSICAL_CARD);
+        sendToTopic("physical.card.replacement.request", payload);
+    }
 
     // Sends event when the CVV is viewed for a virtual card
     public void sendViewedCvv(EventPayload payload) {
