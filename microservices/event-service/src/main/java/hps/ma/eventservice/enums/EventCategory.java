@@ -32,4 +32,5 @@ public enum EventCategory {
     PIN_UPDATED,
     CVV_REQUESTED,
     PHYSICAL_CARD_LIMITS_UPDATED
+
 }
