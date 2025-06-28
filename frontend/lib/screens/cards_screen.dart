@@ -27,7 +27,9 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
     'Virtual Cards',
     'Blocked Cards',
     'Canceled Cards',
+    'New Requests', // 🟢 Add this line
   ];
+
 
   final ScrollController _scrollController = ScrollController();
 
@@ -90,6 +92,9 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
 
       'Canceled Cards' => allCards.where((card) =>
       card.status == 'SUSPENDED').toList(),
+
+      'New Requests' => allCards.where((card) =>
+      card.status == 'NEW_REQUEST').toList(),
 
       _ => allCards,
     };
@@ -269,6 +274,7 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
                             'STOLEN',
                             'DAMAGED',
                             'SUSPENDED',
+                            'NEW_REQUEST',
                           ].contains(card.status),
                           customOverlay: () {
                             String? label;
@@ -315,6 +321,11 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
                                 label = 'Canceled';
                                 bgColor = Colors.grey;
                                 icon = CupertinoIcons.pause_circle;
+                                break;
+                              case 'NEW_REQUEST':
+                                label = 'New Request';
+                                bgColor = Colors.teal;
+                                icon = CupertinoIcons.doc_on_doc;
                                 break;
                               default:
                                 return null;
