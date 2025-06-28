@@ -272,4 +272,75 @@ class CardService {
     }
   }
 
+  Future<bool> requestPhysicalCardReplacementDueToLoss(String cardId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+
+    if (token == null) {
+      throw Exception("Not authenticated.");
+    }
+
+    final uri = Uri.parse(
+        "$_baseUrl/api/cards/physical-card/$cardId/request-replacement-due-to-loss"
+    );
+
+    try {
+      final response = await http.put(
+        uri,
+        headers: {
+          'Authorization': "Bearer $token",
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print("✅ Physical card replacement requested successfully.");
+        return true;
+      } else {
+        print("❌ Failed to request physical card replacement: ${response.statusCode}");
+        print("🔍 Body: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("❌ Network error: $e");
+      return false;
+    }
+  }
+
+  Future<bool> requestPhysicalCardReplacementDueToStolen(String cardId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+
+    if (token == null) {
+      throw Exception("Not authenticated.");
+    }
+
+    final uri = Uri.parse(
+        "$_baseUrl/api/cards/physical-card/$cardId/request-replacement-due-to-stolen"
+    );
+
+    try {
+      final response = await http.put(
+        uri,
+        headers: {
+          'Authorization': "Bearer $token",
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print("✅ Physical card replacement (due to stolen) requested successfully.");
+        return true;
+      } else {
+        print("❌ Failed to request physical card replacement due to stolen: ${response.statusCode}");
+        print("🔍 Body: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("❌ Network error: $e");
+      return false;
+    }
+  }
+
+
 }
