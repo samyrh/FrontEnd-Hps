@@ -61,11 +61,14 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   final String username = 'nada@example.com';
   final TextEditingController _cvvController = TextEditingController();
   final TextEditingController _pinController = TextEditingController();
+  bool isPendingNewCardApproval = false;
 
   DropdownItem? selectedLimitType;
   DropdownItem? blockReason;
 
   final ScrollController _scrollController = ScrollController(); // << ADDED
+
+  Timer? _refreshTimer; // << ADDED for periodic refresh
 
   final List<DropdownItem> limitTypes = [
     DropdownItem(label: 'Daily Spending Limit', icon: Icons.calendar_today),
@@ -108,6 +111,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   @override
   void initState() {
     super.initState();
+    print("🔍 INIT_STATE - Starting initialization");
+    print("🔍 INIT_STATE - cardId: ${widget.cardId}");
+    
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -115,34 +121,46 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     _animation = Tween<double>(begin: 0, end: pi).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
+    
+    print("🔍 INIT_STATE - Calling _fetchCard");
     _fetchCard();
+    print("🔍 INIT_STATE - _fetchCard called");
   }
 
   Future<void> _fetchCard() async {
+    print("🔍 _FETCH_CARD - Starting fetch");
+    print("🔍 _FETCH_CARD - cardId: ${widget.cardId}");
+
     if (widget.cardId == null) {
+      print("❌ _FETCH_CARD - No card ID provided");
       setState(() {
         isLoading = false;
         errorMessage = 'No card ID provided.';
       });
       return;
     }
+
     try {
+      print("🔍 _FETCH_CARD - Calling CardService.fetchCardById");
       final fetchedCard = await CardService().fetchCardById(widget.cardId!);
+      print("✅ _FETCH_CARD - Card fetched successfully");
+      print("   status: ${fetchedCard.status}");
+      print("   blockReason: ${fetchedCard.blockReason}");
+      print("   replacementRequested: ${fetchedCard.replacementRequested}");
+
       setState(() {
         card = fetchedCard;
         isLoading = false;
         errorMessage = null;
-        // Update controllers with fetched values
+
         _cvvController.text = '•••';
         _pinController.text = '••••';
 
-        // Only set selectedLimitType if null or not in limitTypes
         if (selectedLimitType == null ||
             !limitTypes.any((item) => item.label == selectedLimitType!.label)) {
           selectedLimitType = limitTypes.first;
         }
 
-        // Set selectedLimit to match the current selectedLimitType
         if (selectedLimitType != null && card != null) {
           switch (selectedLimitType!.label) {
             case 'Daily Spending Limit':
@@ -156,8 +174,85 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
               break;
           }
         }
+
+        isBlocked = card!.status != 'ACTIVE';
+
+        // 🟢 Determine if pending approval (NEW_REQUEST but no replacementRequested yet)
+        isPendingNewCardApproval = card!.status == 'NEW_REQUEST' && !(card!.replacementRequested ?? false);
+
+        if (isPendingNewCardApproval) {
+          // Pending approval: show banner, disable flips, no block reason
+          lostConfirmed = false;
+          blockReason = null;
+          showRequestCard = false;
+          hasRequestedNewCard = false;
+          requestedNewCardDate = null;
+          print("✅ Detected pending approval scenario");
+        }
+        // 🟢 Handle LOST or replacement requested
+        else if (card!.status == 'LOST' || (card!.status == 'NEW_REQUEST' && card!.replacementRequested == true)) {
+          lostConfirmed = true;
+          blockReason = blockReasons.firstWhere((b) => b.value == 'LOST');
+          showRequestCard = true;
+          hasRequestedNewCard = true;
+          print("✅ Detected LOST or NEW_REQUEST+replacementRequested scenario");
+        }
+        // 🟢 Map block reasons
+        else if (card!.blockReason != null) {
+          final matching = blockReasons.where((item) => item.value == card!.blockReason);
+          if (matching.isNotEmpty) {
+            blockReason = matching.first;
+          } else {
+            blockReason = null;
+          }
+          lostConfirmed = card!.blockReason == 'LOST' || card!.blockReason == 'STOLEN' || card!.blockReason == 'DAMAGED';
+          showRequestCard = lostConfirmed || card!.blockReason == 'PERMANENT_BLOCK';
+          hasRequestedNewCard = card!.replacementRequested == true;
+        }
+        // 🟢 No block reason and no special state
+        else {
+          blockReason = null;
+          lostConfirmed = false;
+          showRequestCard = false;
+          hasRequestedNewCard = false;
+          requestedNewCardDate = null;
+        }
+
+        // 🟢 Expected delivery date logic
+        if (hasRequestedNewCard) {
+          if (card!.blockEndDate != null && card!.blockEndDate!.isNotEmpty) {
+            requestedNewCardDate = DateTime.tryParse(card!.blockEndDate!);
+            print("🔍 Using backend delivery date: ${card!.blockEndDate}");
+          }
+          if (requestedNewCardDate == null) {
+            requestedNewCardDate = DateTime.now().add(const Duration(days: 7));
+            print("🔍 Using default delivery date: $requestedNewCardDate");
+          }
+        } else {
+          requestedNewCardDate = null;
+        }
+
+        isPermanent = card!.blockReason == 'PERMANENT_BLOCK' || lostConfirmed;
+        confirmedPermanentBlock = card!.blockReason == 'PERMANENT_BLOCK';
+
+        // Reset delete state if card is active
+        if (!isBlocked) {
+          isCardDeleted = false;
+          deleteRequestSent = false;
+          isRequestSent = false;
+        }
+
+        print("✅ Final state:");
+        print("   isBlocked: $isBlocked");
+        print("   blockReason: ${blockReason?.label}");
+        print("   lostConfirmed: $lostConfirmed");
+        print("   showRequestCard: $showRequestCard");
+        print("   hasRequestedNewCard: $hasRequestedNewCard");
+        print("   isPendingNewCardApproval: $isPendingNewCardApproval");
+        print("   requestedNewCardDate: $requestedNewCardDate");
       });
     } catch (e) {
+      print("❌ _FETCH_CARD - Error: $e");
       setState(() {
         isLoading = false;
         errorMessage = e.toString();
@@ -175,6 +270,17 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       );
       return;
     }
+    
+    if (isPendingNewCardApproval) {
+      showCupertinoGlassToast(
+        context,
+        "Your new card is pending approval. Card interactions are disabled.",
+        isSuccess: false,
+        position: ToastPosition.top,
+      );
+      return;
+    }
+    
     setState(() {
       isFront = !isFront;
       if (isFront) {
@@ -197,6 +303,17 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       );
       return;
     }
+    
+    if (isPendingNewCardApproval) {
+      showCupertinoGlassToast(
+        context,
+        "Your new card is pending approval. CVV and PIN are not available.",
+        isSuccess: false,
+        position: ToastPosition.top,
+      );
+      return;
+    }
+    
     setState(() {
       showCvvPopup = true;
       cvvCountdown = 5;
@@ -226,6 +343,17 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       );
       return;
     }
+    
+    if (isPendingNewCardApproval) {
+      showCupertinoGlassToast(
+        context,
+        "Your new card is pending approval. CVV and PIN are not available.",
+        isSuccess: false,
+        position: ToastPosition.top,
+      );
+      return;
+    }
+    
     setState(() {
       showPinPopup = true;
       pinCountdown = 5;
@@ -776,15 +904,17 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     final double maxLimit =
     selectedLimitType != null ? (maxLimitByType[selectedLimitType!.label] ?? 5000) : 5000;
 
+    final isInteractionsDisabled = isBlocked || isPendingNewCardApproval;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle("Manage Limits"),
 
         Opacity(
-          opacity: isBlocked ? 0.4 : 1,
+          opacity: isInteractionsDisabled ? 0.4 : 1,
           child: IgnorePointer(
-            ignoring: isBlocked,
+            ignoring: isInteractionsDisabled,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: CustomDropdown(
@@ -808,9 +938,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
             child: Opacity(
-              opacity: isBlocked ? 0.4 : 1,
+              opacity: isInteractionsDisabled ? 0.4 : 1,
               child: IgnorePointer(
-                ignoring: isBlocked,
+                ignoring: isInteractionsDisabled,
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                   decoration: BoxDecoration(
@@ -849,8 +979,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                   return slide;
                                 },
                                 child: Text(
-                                  "\$${(isBlocked ? 0 : selectedLimit).toInt()}",
-                                  key: ValueKey<int>((isBlocked ? 0 : selectedLimit).toInt()),
+                                  "\$${(isInteractionsDisabled ? 0 : selectedLimit).toInt()}",
+                                  key: ValueKey<int>((isInteractionsDisabled ? 0 : selectedLimit).toInt()),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
@@ -899,7 +1029,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                         ),
                       ),
                       _buildAvailableLimitMessage(
-                        isBlocked ? 0 : selectedLimit,
+                        isInteractionsDisabled ? 0 : selectedLimit,
                         maxLimit,
                       ),
                     ],
@@ -1524,49 +1654,118 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           ),
         ],
       ),
-        child: ElevatedButton.icon(
-          onPressed: isSent
-              ? null
-              : () {
-            _showRequestConfirmationDialog();
-            setState(() {
-              hasRequestedNewCard = true;
-              requestedNewCardDate = DateTime.now().add(const Duration(days: 7));
-            });
-          },
-          icon: Icon(
-            Icons.credit_card_rounded,
-            size: 20,
+      child: ElevatedButton.icon(
+        onPressed: isSent
+            ? null
+            : () async {
+          _showRequestConfirmationDialog();
+
+          if (widget.cardId == null) {
+            showCupertinoGlassToast(
+              context,
+              "Card ID not available. Please try again.",
+              isSuccess: false,
+              position: ToastPosition.top,
+            );
+            return;
+          }
+
+          try {
+            bool success = false;
+
+            // ✅ Check blockReason and call the appropriate service
+            if (blockReason?.value == 'STOLEN') {
+              success = await CardService()
+                  .requestPhysicalCardReplacementDueToStolen(widget.cardId!);
+            } else {
+              success = await CardService()
+                  .requestPhysicalCardReplacementDueToLoss(widget.cardId!);
+            }
+
+            if (success) {
+              await _fetchCard();
+
+              setState(() {
+                hasRequestedNewCard = card?.replacementRequested == true;
+
+                // Retain the block reason after refresh
+                if (blockReason?.value == 'STOLEN') {
+                  blockReason =
+                      blockReasons.firstWhere((b) => b.value == 'STOLEN');
+                } else {
+                  blockReason =
+                      blockReasons.firstWhere((b) => b.value == 'LOST');
+                }
+
+                requestedNewCardDate =
+                (card?.blockEndDate != null && card!.blockEndDate!.isNotEmpty)
+                    ? DateTime.tryParse(card!.blockEndDate!)
+                    : DateTime.now().add(const Duration(days: 7));
+              });
+
+              showCupertinoGlassToast(
+                context,
+                "Replacement request sent successfully!",
+                isSuccess: true,
+                position: ToastPosition.top,
+              );
+            } else {
+              showCupertinoGlassToast(
+                context,
+                "Failed to send replacement request. Please try again.",
+                isSuccess: false,
+                position: ToastPosition.top,
+              );
+            }
+          } catch (e) {
+            print("❌ Request replacement failed: $e");
+            showCupertinoGlassToast(
+              context,
+              "Failed to send replacement request: ${e.toString()}",
+              isSuccess: false,
+              position: ToastPosition.top,
+            );
+          }
+        },
+        icon: Icon(
+          Icons.credit_card_rounded,
+          size: 20,
+          color: isSent ? Colors.grey[400] : (iOSStyle ? Colors.black : Colors.white),
+        ),
+        label: Text(
+          isSent ? "Request Sent" : "Request New Card",
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
             color: isSent ? Colors.grey[400] : (iOSStyle ? Colors.black : Colors.white),
           ),
-          label: Text(
-            isSent ? "Request Sent" : "Request New Card",
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-              color: isSent ? Colors.grey[400] : (iOSStyle ? Colors.black : Colors.white),
-            ),
-          ),
-          style: ElevatedButton.styleFrom(
-            elevation: isSent ? 0 : 4,
-            backgroundColor: isSent
-                ? const Color(0xFFF2F2F7)
-                : (iOSStyle ? Colors.white.withOpacity(0.85) : const Color(0xFF007AFF)),
-            shadowColor: isSent ? Colors.transparent : Colors.black.withOpacity(0.1),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: isSent
-                  ? BorderSide(color: Colors.grey[300]!)
-                  : BorderSide(color: iOSStyle ? const Color(0xFFE5E5EA) : Colors.transparent),
-            ),
-            foregroundColor: Colors.white,
-          ),
         ),
-
+        style: ElevatedButton.styleFrom(
+          elevation: isSent ? 0 : 4,
+          backgroundColor: isSent
+              ? const Color(0xFFF2F2F7)
+              : (iOSStyle
+              ? Colors.white.withOpacity(0.85)
+              : const Color(0xFF007AFF)),
+          shadowColor: isSent ? Colors.transparent : Colors.black.withOpacity(0.1),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: isSent
+                ? BorderSide(color: Colors.grey[300]!)
+                : BorderSide(
+              color: iOSStyle
+                  ? const Color(0xFFE5E5EA)
+                  : Colors.transparent,
+            ),
+          ),
+          foregroundColor: Colors.white,
+        ),
+      ),
     );
   }
+
   Widget _buildRequestDamagedCardButton({bool iOSStyle = false}) {
     final bool isSent = hasRequestedNewCard;
 
@@ -1598,12 +1797,76 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       child: ElevatedButton.icon(
         onPressed: isSent
             ? null
-            : () {
+            : () async {
+          // Show confirmation dialog first
           _showRequestConfirmationDialog();
-          setState(() {
-            hasRequestedNewCard = true;
-            requestedNewCardDate = DateTime.now().add(const Duration(days: 7));
-          });
+
+          if (widget.cardId == null) {
+            showCupertinoGlassToast(
+              context,
+              "Card ID not available. Please try again.",
+              isSuccess: false,
+              position: ToastPosition.top,
+            );
+            return;
+          }
+
+          try {
+            bool success = false;
+
+            // ✅ Decide which service to call
+            if (blockReason?.value == 'STOLEN') {
+              success = await CardService().requestPhysicalCardReplacementDueToStolen(widget.cardId!);
+            } else {
+              success = await CardService().requestPhysicalCardReplacementDueToLoss(widget.cardId!);
+            }
+
+            if (success) {
+              // Refresh card data to get updated backend state
+              await _fetchCard();
+
+              setState(() {
+                hasRequestedNewCard = card?.replacementRequested == true;
+                lostConfirmed = true;
+
+                // Keep the selected reason visible
+                if (blockReason == null && card?.status == 'NEW_REQUEST') {
+                  blockReason = blockReasons.firstWhere(
+                        (b) => b.value == 'LOST' || b.value == 'STOLEN',
+                    orElse: () => blockReasons.first,
+                  );
+                }
+
+                // Use backend date or fallback
+                requestedNewCardDate =
+                (card?.blockEndDate != null && card!.blockEndDate!.isNotEmpty)
+                    ? DateTime.tryParse(card!.blockEndDate!)
+                    : DateTime.now().add(const Duration(days: 7));
+              });
+
+              showCupertinoGlassToast(
+                context,
+                "Replacement request sent successfully!",
+                isSuccess: true,
+                position: ToastPosition.top,
+              );
+            } else {
+              showCupertinoGlassToast(
+                context,
+                "Failed to send replacement request. Please try again.",
+                isSuccess: false,
+                position: ToastPosition.top,
+              );
+            }
+          } catch (e) {
+            print("❌ Request replacement failed: $e");
+            showCupertinoGlassToast(
+              context,
+              "Failed to send replacement request: ${e.toString()}",
+              isSuccess: false,
+              position: ToastPosition.top,
+            );
+          }
         },
         icon: Icon(
           Icons.construction_rounded,
@@ -1745,6 +2008,73 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF007AFF),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingApprovalInfoBox() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFE6F3FF), Color(0xFFD1E9FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFB3D9FF), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF007AFF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.info_outline_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Pending Approval",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1C1C1E),
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  "Your new card request has been received and is pending approval. Your card will be available in approximately 2–3 weeks.",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF3C3C43),
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1956,7 +2286,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
 
                         if (val) {
                           _scrollToBottom();
-
+                          if (blockReason != null) {
+                            _startRefreshTimer(); // Start periodic refresh when blocked and reason selected
+                          }
                           if (blockReason == null) {
                             Future.delayed(const Duration(milliseconds: 300), () {
                               showCupertinoGlassToast(
@@ -1970,6 +2302,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                             Future.delayed(const Duration(minutes: 10), () {
                               if (mounted && blockReason == null && isBlocked) {
                                 setState(() => isBlocked = false);
+                                _stopRefreshTimer(); // Stop timer if block is cancelled
                                 showCupertinoGlassToast(
                                   context,
                                   "Blocking has been cancelled due to no reason being selected.",
@@ -1979,6 +2312,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                               }
                             });
                           }
+                        } else {
+                          _stopRefreshTimer(); // Stop periodic refresh when unblocked
                         }
                       });
                     }
@@ -2092,7 +2427,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                     blockStartDate = null;
                                     blockEndDate = null;
                                   });
-
+                                  if (isBlocked && blockReason != null) {
+                                    _startRefreshTimer();
+                                  }
                                   Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
                                 },
                                 label: '',
@@ -2146,8 +2483,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                               );
                             },
                           ),
-                        // Request New Card Button and Delivery Span
-                        if (blockReason?.label == 'Card Lost – Cannot Find It' && lostConfirmed) ...[
+                        // Request New Card Button and Delivery Span - SIMPLIFIED LOGIC
+                        if (lostConfirmed) ...[
+                          // Show appropriate button based on backend reason
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Align(
@@ -2160,48 +2498,13 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                               ),
                             ),
                           ),
+                          // Show delivery info if request was made
                           if (hasRequestedNewCard && requestedNewCardDate != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 18),
                               child: Center(
                                 child: _buildCardDeliveryInfo(),
                               ),
-                            ),
-                        ] else if (blockReason?.label == 'Card Stolen – Unauthorized Use' && lostConfirmed) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  minWidth: double.infinity,
-                                ),
-                                child: _buildRequestReplacementCardButton(iOSStyle: false),
-                              ),
-                            ),
-                          ),
-                          if (hasRequestedNewCard && requestedNewCardDate != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 18),
-                              child: Center(child: _buildCardDeliveryInfo()),
-                            ),
-                        ] else if (blockReason?.label == 'Card Damaged – Not Functional' && lostConfirmed) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  minWidth: double.infinity,
-                                ),
-                                child: _buildRequestDamagedCardButton(iOSStyle: false),
-                              ),
-                            ),
-                          ),
-                          if (hasRequestedNewCard && requestedNewCardDate != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 18),
-                              child: Center(child: _buildCardDeliveryInfo()),
                             ),
                         ],
                       ]
@@ -2246,12 +2549,56 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
       child: ElevatedButton.icon(
         onPressed: isSent
             ? null
-            : () {
-          _showRequestConfirmationDialog(); // You can make a separate one if needed
-          setState(() {
-            hasRequestedNewCard = true;
-            requestedNewCardDate = DateTime.now().add(const Duration(days: 7));
-          });
+            : () async {
+          // Show confirmation dialog first
+          _showRequestConfirmationDialog();
+          
+          // Call the service to request replacement
+          if (widget.cardId != null) {
+            try {
+              final success = await CardService().requestPhysicalCardReplacementDueToLoss(widget.cardId!);
+              
+              if (success) {
+                setState(() {
+                  hasRequestedNewCard = true;
+                  // Use backend date if available, otherwise estimate 7 days from now
+                  requestedNewCardDate = DateTime.tryParse(card?.blockEndDate ?? '') ?? DateTime.now().add(const Duration(days: 7));
+                });
+                
+                // Refresh card data to get updated backend state
+                await _fetchCard();
+                
+                showCupertinoGlassToast(
+                  context,
+                  "Replacement request sent successfully!",
+                  isSuccess: true,
+                  position: ToastPosition.top,
+                );
+              } else {
+                showCupertinoGlassToast(
+                  context,
+                  "Failed to send replacement request. Please try again.",
+                  isSuccess: false,
+                  position: ToastPosition.top,
+                );
+              }
+            } catch (e) {
+              print("❌ Request replacement failed: $e");
+              showCupertinoGlassToast(
+                context,
+                "Failed to send replacement request: ${e.toString()}",
+                isSuccess: false,
+                position: ToastPosition.top,
+              );
+            }
+          } else {
+            showCupertinoGlassToast(
+              context,
+              "Card ID not available. Please try again.",
+              isSuccess: false,
+              position: ToastPosition.top,
+            );
+          }
         },
         icon: Icon(
           Icons.credit_card_rounded,
@@ -2286,7 +2633,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     );
   }
   Widget _buildContactlessToggle() {
-    final isDisabled = isBlocked;
+    final isDisabled = isBlocked || isPendingNewCardApproval;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
@@ -2317,7 +2664,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   ),
                 ),
                 UltraSwitch(
-                  value: isBlocked ? false : isContactlessEnabled,
+                  value: isDisabled ? false : isContactlessEnabled,
                   onChanged: (val) {
                     setState(() => isContactlessEnabled = val);
                   },
@@ -2331,7 +2678,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     );
   }
   Widget _buildEcommerceToggle() {
-    final isDisabled = isBlocked;
+    final isDisabled = isBlocked || isPendingNewCardApproval;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
@@ -2362,7 +2709,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   ),
                 ),
                 UltraSwitch(
-                  value: isBlocked ? false : isEcommerceEnabled,
+                  value: isDisabled ? false : isEcommerceEnabled,
                   onChanged: (val) {
                     setState(() => isEcommerceEnabled = val);
                   },
@@ -2376,7 +2723,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     );
   }
   Widget _buildTpeToggle() {
-    final isDisabled = isBlocked;
+    final isDisabled = isBlocked || isPendingNewCardApproval;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
@@ -2407,7 +2754,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   ),
                 ),
                 UltraSwitch(
-                  value: isBlocked ? false : isTpePaymentEnabled,
+                  value: isDisabled ? false : isTpePaymentEnabled,
                   onChanged: (val) {
                     setState(() => isTpePaymentEnabled = val);
                   },
@@ -2423,7 +2770,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   // Card UI widgets
   Widget _buildCard() =>
       GestureDetector(
-        onTap: _flipCard,
+        onTap: isPendingNewCardApproval ? null : _flipCard,
         child: AnimatedBuilder(
           animation: _animation,
           builder: (context, child) {
@@ -3146,6 +3493,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     _cvvController.dispose();
     _pinController.dispose();
     _scrollController.dispose(); // << Dispose controller
+    _refreshTimer?.cancel(); // << Dispose refresh timer
     super.dispose();
   }
   @override
@@ -3159,6 +3507,16 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     final bounceScale = _scrollController.hasClients && _scrollController.offset < 0
         ? 1.0 - (_scrollController.offset / -150)
         : 1.0;
+
+    // Debug prints for state
+    print("🔍 BUILD - isBlocked: $isBlocked");
+    print("🔍 BUILD - blockReason: ${blockReason?.label} (${blockReason?.value})");
+    print("🔍 BUILD - lostConfirmed: $lostConfirmed");
+    print("🔍 BUILD - hasRequestedNewCard: $hasRequestedNewCard");
+    print("🔍 BUILD - requestedNewCardDate: $requestedNewCardDate");
+    print("🔍 BUILD - card?.blockReason: ${card?.blockReason}");
+    print("🔍 BUILD - card?.replacementRequested: ${card?.replacementRequested}");
+    print("🔍 BUILD - isPendingNewCardApproval: $isPendingNewCardApproval");
 
     if (isLoading) {
       return const Scaffold(
@@ -3253,9 +3611,15 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                     expiryDate: card?.expirationDate ?? '',
                     cvv: card?.cvv ?? '',
                     pin: card?.pin ?? '',
+                    hideCvvAndPin: isPendingNewCardApproval, // ✅ Hide CVV and PIN when pending approval
                   ),
 
-                  if (!isRequestSent) ...[
+                  // Show pending approval info box when applicable
+                  if (isPendingNewCardApproval)
+                    _buildPendingApprovalInfoBox(),
+
+                  // Only show other sections if NOT pending approval
+                  if (!isRequestSent && !isPendingNewCardApproval) ...[
                     Builder(
                       builder: (context) {
                         if (card == null || selectedLimitType == null) {
@@ -3370,11 +3734,14 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                       onTpeChanged: (val) {
                         setState(() => isTpePaymentEnabled = val);
                       },
+                      isPendingApproval: isPendingNewCardApproval, // ✅ Pass pending approval state
                     ),
                     _buildBlockCardSection(),
                   ],
 
-                  _buildDeleteCardSection(),
+                  // Only show delete card section if NOT pending approval
+                  if (!isPendingNewCardApproval)
+                    _buildDeleteCardSection(),
                 ],
               ),
 
@@ -3423,6 +3790,24 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
         ],
       ),
     );
+  }
+
+  // --- Add this helper to manage the refresh timer ---
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _fetchCard();
+      // TODO: Add other service refreshes here if needed
+    });
+  }
+
+  void _stopRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
   }
 }
 
