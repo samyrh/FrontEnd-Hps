@@ -9,6 +9,7 @@ class SecuritySettingsSection extends StatelessWidget {
   final Function(bool) onContactlessChanged;
   final Function(bool) onEcommerceChanged;
   final Function(bool) onTpeChanged;
+  final bool isPendingApproval;
 
   const SecuritySettingsSection({
     Key? key,
@@ -19,6 +20,7 @@ class SecuritySettingsSection extends StatelessWidget {
     required this.onContactlessChanged,
     required this.onEcommerceChanged,
     required this.onTpeChanged,
+    this.isPendingApproval = false,
   }) : super(key: key);
 
   @override
@@ -81,7 +83,7 @@ class SecuritySettingsSection extends StatelessWidget {
     required bool value,
     required Function(bool) onChanged,
   }) {
-    final isDisabled = isBlocked;
+    final isDisabled = isBlocked || isPendingApproval;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
       child: Opacity(
@@ -111,7 +113,7 @@ class SecuritySettingsSection extends StatelessWidget {
                   ),
                 ),
                 UltraSwitch(
-                  value: isBlocked ? false : value,
+                  value: isDisabled ? false : value,
                   onChanged: onChanged,
                   activeColor: Colors.blueAccent,
                 ),
