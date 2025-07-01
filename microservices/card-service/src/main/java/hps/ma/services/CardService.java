@@ -1079,5 +1079,271 @@ public class CardService {
 
         System.out.println("✅ New card created: " + newCardNumber + ", CVV: " + plainCvv + ", PIN: " + plainPin);
     }
+    public void requestPhysicalCardReplacementDueToDamaged(String token, Long cardId) {
+        // 1️⃣ Extract username from token
+        String username = jwtUtil.extractUsername(token.replace("Bearer ", ""));
+        Long cardholderId = cardholderInfoService.getCardholderIdByUsername(username);
+
+        // 2️⃣ Retrieve the card
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found"));
+
+        // 3️⃣ Ensure ownership
+        if (!card.getCardholderId().equals(cardholderId)) {
+            throw new RuntimeException("Unauthorized operation.");
+        }
+
+        // 4️⃣ Ensure it's a PHYSICAL card
+        if (card.getType() != CardType.PHYSICAL) {
+            throw new RuntimeException("Only physical cards can be replaced via this operation.");
+        }
+
+        // 5️⃣ Update status and flags
+        card.setStatus(CardStatus.NEW_REQUEST);
+        card.setBlockReason(null);
+        card.setReplacementRequested(true);
+        card.setContactlessEnabled(false);
+        card.setEcommerceEnabled(false);
+        card.setTpeEnabled(false);
+        card.setInternationalWithdraw(false);
+
+        // 6️⃣ Save the updated card
+        cardRepository.save(card);
+
+        // 7️⃣ Retrieve cardholder info for notifications
+        Map<String, Object> userInfo = cardholderService.getCardholderById(cardholderId);
+        String cardholderName = (String) userInfo.get("cardholderName");
+        String email = (String) userInfo.get("email");
+
+        // 8️⃣ Notify all agents
+        List<AgentDto> agents = agentService.getAllAgents();
+        for (AgentDto agent : agents) {
+            EventPayload payload = EventPayload.builder()
+                    .message("Physical card replacement requested because the card was reported DAMAGED by "
+                            + cardholderName + " (Card: " + card.getCardNumber() + ").")
+                    .sentAt(new Date())
+                    .senderType(SenderType.CARDHOLDER)
+                    .category(EventCategory.REQUEST_REPLACEMENT_PHYSICAL_CARD)
+                    .senderId(cardholderId)
+                    .recipientId(agent.getId())
+                    .cardId(card.getId())
+                    .email(email)
+                    .username(cardholderName)
+                    .build();
+
+            cardSecurityEventProducer.sendPhysicalCardReplacementRequest(payload);
+        }
+    }
+    public void updatePhysicalCardSecurityOptions(
+            Long cardId,
+            Boolean contactless,
+            Boolean ecommerce,
+            Boolean tpe,
+            Boolean internationalWithdraw
+    ) {
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found"));
+
+        if (card.getType() != CardType.PHYSICAL) {
+            throw new RuntimeException("This method is only for physical cards.");
+        }
+
+        // Store old values for comparison
+        boolean changed = false;
+        StringBuilder changes = new StringBuilder();
+
+        if (contactless != null && !contactless.equals(card.getContactlessEnabled())) {
+            card.setContactlessEnabled(contactless);
+            changes.append("contactless ").append(contactless ? "enabled" : "disabled").append(", ");
+            changed = true;
+        }
+        if (ecommerce != null && !ecommerce.equals(card.getEcommerceEnabled())) {
+            card.setEcommerceEnabled(ecommerce);
+            changes.append("ecommerce ").append(ecommerce ? "enabled" : "disabled").append(", ");
+            changed = true;
+        }
+        if (tpe != null && !tpe.equals(card.getTpeEnabled())) {
+            card.setTpeEnabled(tpe);
+            changes.append("TPE ").append(tpe ? "enabled" : "disabled").append(", ");
+            changed = true;
+        }
+        if (internationalWithdraw != null && !internationalWithdraw.equals(card.getInternationalWithdraw())) {
+            card.setInternationalWithdraw(internationalWithdraw);
+            changes.append("international withdraw ").append(internationalWithdraw ? "enabled" : "disabled").append(", ");
+            changed = true;
+        }
+
+        // Only save and notify if any change was made
+        if (changed) {
+            cardRepository.save(card);
+
+            Long cardholderId = card.getCardholderId();
+            Map<String, Object> user = cardholderService.getCardholderById(cardholderId);
+            String email = (String) user.get("email");
+            String username = (String) user.get("cardholderName");
+            String cardNumber = card.getCardNumber();
+
+            String changesText = changes.substring(0, changes.length() - 2); // remove last comma
+
+            List<AgentDto> agents = agentService.getAllAgents();
+            for (AgentDto agent : agents) {
+                EventPayload payload = EventPayload.builder()
+                        .message("Cardholder " + username + " updated physical card security options for card " + cardNumber + ": " + changesText)
+                        .sentAt(new Date())
+                        .senderType(SenderType.CARDHOLDER)
+                        .category(EventCategory.SECURITY)
+                        .senderId(cardholderId)
+                        .recipientId(agent.getId())
+                        .cardId(cardId)
+                        .email(email)
+                        .username(username)
+                        .build();
+
+                cardSecurityEventProducer.send(payload);
+            }
+        } else {
+            // Optional: log or handle "no changes" situation
+            System.out.println("⚠️ No changes detected in security options for card " + cardId);
+        }
+    }
+
+    public CardSecurityOptionsWithIdDTO getPhysicalCardSecurityOptionById(String token, Long cardId) {
+        String username = jwtUtil.extractUsername(token.replace("Bearer ", ""));
+        Long cardholderId = cardholderInfoService.getCardholderIdByUsername(username);
+
+        Map<String, Object> userInfo = cardholderService.getCardholderById(cardholderId);
+        String cardholderName = (String) userInfo.get("cardholderName");
+
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found with id: " + cardId));
+
+        if (!Objects.equals(card.getCardholderId(), cardholderId)) {
+            throw new RuntimeException("You do not have permission to access this card.");
+        }
+
+        if (card.getType() != CardType.PHYSICAL) {
+            throw new RuntimeException("Card is not a physical card.");
+        }
+
+        return CardSecurityOptionsWithIdDTO.builder()
+                .cardId(card.getId())
+                .label(card.getCardPack() != null ? card.getCardPack().getLabel() : "Unknown Pack")
+                .contactlessEnabled(Boolean.TRUE.equals(card.getContactlessEnabled()))
+                .ecommerceEnabled(Boolean.TRUE.equals(card.getEcommerceEnabled()))
+                .tpeEnabled(Boolean.TRUE.equals(card.getTpeEnabled()))
+                .internationalWithdrawEnabled(Boolean.TRUE.equals(card.getInternationalWithdraw()))
+                .username(username)
+                .cardholderName(cardholderName)
+                .build();
+    }
+    public void unblockPhysicalCard(Long cardId) {
+        // 1️⃣ Retrieve the card
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found"));
+
+        // 2️⃣ Ensure it's a PHYSICAL card
+        if (card.getType() != CardType.PHYSICAL) {
+            throw new RuntimeException("Card is not a physical card.");
+        }
+
+        // 3️⃣ Check if the card is actually blocked
+        if (card.getStatus() != CardStatus.PERMANENTLY_BLOCKED &&
+                card.getStatus() != CardStatus.LOST &&
+                card.getStatus() != CardStatus.STOLEN &&
+                card.getStatus() != CardStatus.DAMAGED) {
+            throw new RuntimeException("Card is not in a blocked state.");
+        }
+
+        // 4️⃣ Reactivate card and re-enable features
+        card.setStatus(CardStatus.ACTIVE);
+        card.setBlockReason(null);
+        card.setContactlessEnabled(true);
+        card.setEcommerceEnabled(true);
+        card.setTpeEnabled(true);
+        card.setInternationalWithdraw(true);
+        cardRepository.save(card);
+
+        // 5️⃣ Gather info for notification
+        Map<String, Object> userInfo = cardholderService.getCardholderById(card.getCardholderId());
+        String cardholderName = (String) userInfo.get("cardholderName");
+        String email = (String) userInfo.get("email");
+
+        // 6️⃣ Notify all agents
+        List<AgentDto> agents = agentService.getAllAgents();
+        for (AgentDto agent : agents) {
+            String message = String.format(
+                    "Physical card unblocked for %s (Card: %s, Pack: %s)",
+                    cardholderName,
+                    card.getCardNumber(),
+                    card.getCardPack() != null ? card.getCardPack().getLabel() : "Unknown Pack"
+            );
+
+            EventPayload payload = EventPayload.builder()
+                    .message(message)
+                    .sentAt(new Date())
+                    .senderType(SenderType.CARDHOLDER)
+                    .category(EventCategory.PHYSICAL_CARD_UNBLOCKED)
+                    .senderId(card.getCardholderId())
+                    .recipientId(agent.getId())
+                    .cardId(card.getId())
+                    .email(email)
+                    .username(cardholderName)
+                    .build();
+
+            // You can create a method similar to sendVirtualCardUnblocked if you prefer, or reuse a generic send
+            cardSecurityEventProducer.sendPhysicalCardUnblocked(payload);
+        }
+    }
+    public void cancelPhysicalCard(Long cardId) {
+        // Retrieve the card
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new RuntimeException("Card not found"));
+
+        // Validate card type
+        if (card.getType() != CardType.PHYSICAL) {
+            throw new RuntimeException("Card is not a physical card.");
+        }
+
+        // Optional: check current status
+        if (Boolean.TRUE.equals(card.getIsCanceled())) {
+            throw new RuntimeException("Card is already canceled.");
+        }
+
+        // Update status
+        card.setStatus(CardStatus.SUSPENDED);
+        card.setIsCanceled(true);
+        card.setBlockReason(null);
+        card.setBlockEndDate(null);
+        card.setContactlessEnabled(false);
+        card.setEcommerceEnabled(false);
+        card.setTpeEnabled(false);
+        card.setInternationalWithdraw(false);
+
+        // Save the update
+        cardRepository.save(card);
+
+        // Notify all agents
+        Long cardholderId = card.getCardholderId();
+        Map<String, Object> userInfo = cardholderService.getCardholderById(cardholderId);
+        String username = (String) userInfo.get("cardholderName");
+        String email = (String) userInfo.get("email");
+
+        List<AgentDto> agents = agentService.getAllAgents();
+        for (AgentDto agent : agents) {
+            EventPayload payload = EventPayload.builder()
+                    .message("Physical card canceled: " + username + " (" + card.getCardNumber() + ")")
+                    .sentAt(new Date())
+                    .senderType(SenderType.CARDHOLDER)
+                    .category(EventCategory.PHYSICAL_CARD_CANCELED)
+                    .senderId(cardholderId)
+                    .recipientId(agent.getId())
+                    .cardId(cardId)
+                    .email(email)
+                    .username(username)
+                    .build();
+
+            cardSecurityEventProducer.sendPhysicalCardCanceled(payload);
+        }
+    }
 
 }

@@ -14,4 +14,6 @@ public class UpdateSecurityOptionRequest {
     private Boolean contactlessEnabled;
     private Boolean ecommerceEnabled;
     private Boolean tpeEnabled;
+
+
 }
