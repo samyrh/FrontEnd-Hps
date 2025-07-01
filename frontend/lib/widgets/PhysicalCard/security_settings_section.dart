@@ -6,11 +6,9 @@ class SecuritySettingsSection extends StatelessWidget {
   final bool isContactlessEnabled;
   final bool isEcommerceEnabled;
   final bool isTpePaymentEnabled;
-  final bool isInternationalWithdrawEnabled;
   final Function(bool) onContactlessChanged;
   final Function(bool) onEcommerceChanged;
   final Function(bool) onTpeChanged;
-  final Function(bool) onInternationalWithdrawChanged;
   final bool isPendingApproval;
 
   const SecuritySettingsSection({
@@ -19,11 +17,9 @@ class SecuritySettingsSection extends StatelessWidget {
     required this.isContactlessEnabled,
     required this.isEcommerceEnabled,
     required this.isTpePaymentEnabled,
-    required this.isInternationalWithdrawEnabled,
     required this.onContactlessChanged,
     required this.onEcommerceChanged,
     required this.onTpeChanged,
-    required this.onInternationalWithdrawChanged,
     this.isPendingApproval = false,
   }) : super(key: key);
 
@@ -36,7 +32,6 @@ class SecuritySettingsSection extends StatelessWidget {
         _buildContactlessToggle(),
         _buildEcommerceToggle(),
         _buildTpeToggle(),
-        _buildInternationalWithdrawToggle(),
       ],
     );
   }
@@ -79,15 +74,6 @@ class SecuritySettingsSection extends StatelessWidget {
       icon: Icons.point_of_sale,
       value: isTpePaymentEnabled,
       onChanged: onTpeChanged,
-    );
-  }
-
-  Widget _buildInternationalWithdrawToggle() {
-    return _buildToggleItem(
-      label: "International Withdraw",
-      icon: Icons.public,
-      value: isInternationalWithdrawEnabled,
-      onChanged: onInternationalWithdrawChanged,
     );
   }
 
