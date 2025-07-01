@@ -10,14 +10,12 @@ class OtpVerificationDialog extends StatefulWidget {
   final void Function(String otp) onConfirmed;
   final String username;
   final bool isVirtualCardOtp;
-  final bool isPhysicalCardOtp;
 
   const OtpVerificationDialog({
     super.key,
     required this.onConfirmed,
     required this.username,
     this.isVirtualCardOtp = false,
-    this.isPhysicalCardOtp = false,
   });
 
   @override
@@ -122,11 +120,6 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog>
           username: widget.username,
           otp: code,
         );
-      } else if (widget.isPhysicalCardOtp) {
-        isValid = await OtpService.verifyPhysicalCardOtp(
-          username: widget.username,
-          otp: code,
-        );
       } else {
         // ✅ Use classic OtpService for password reset or others
         isValid = await OtpService.verifyOtp(
@@ -142,7 +135,6 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog>
 
     if (isValid) {
       widget.onConfirmed(code);
-      if(mounted) Navigator.of(context).pop();
     } else {
       HapticFeedback.heavyImpact();
       setState(() => _isInvalid = true);
