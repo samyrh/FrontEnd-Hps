@@ -18,6 +18,8 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../services/card_service/card_service.dart';
 import '../../services/card_service/CardSecurityService.dart';
 import '../../dto/card_dto/card_model.dart';
+import '../../dto/card_dto/PhysicalCardSecurityOption.dart';
+import '../../dto/card_dto/UpdatePhysicalSecurityOptionRequest.dart';
 
 //test
 class AlwaysDisabledFocusNode extends FocusNode {
@@ -25,6 +27,12 @@ class AlwaysDisabledFocusNode extends FocusNode {
   bool get hasFocus => false;
 }
 
+// ✅ ANTI-FLICKER APPROACH:
+// - Security options are nullable and start as null
+// - UI only shows toggles when _securityOptions != null (after first fetch)
+// - No default values shown to user, preventing flicker
+// - Periodic timer starts only after first successful fetch
+// - If fetch fails, last successful data is preserved
 class PhysicalCardDetailsScreen extends StatefulWidget {
   final bool autoScroll; // ✅ NEW
   final String? cardId;
@@ -44,9 +52,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   int cvvCountdown = 5;
   int pinCountdown = 5;
   bool isCvvRevealed = false;
-  bool isContactlessEnabled = true;
-  bool isEcommerceEnabled = true;
-  bool isTpePaymentEnabled = true;
+  // bool isEcommerceEnabled = true;
+  // bool isTpePaymentEnabled = true;
+  // bool isInternationalWithdrawEnabled = true;
   DateTime? blockStartDate;
   DateTime? blockEndDate;
   bool showRequestCard = false;
@@ -69,6 +77,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   final ScrollController _scrollController = ScrollController(); // << ADDED
 
   Timer? _refreshTimer; // << ADDED for periodic refresh
+  Timer? _securityOptionsTimer; // << ADDED for security options refresh
 
   final List<DropdownItem> limitTypes = [
     DropdownItem(label: 'Daily Spending Limit', icon: Icons.calendar_today),
@@ -107,6 +116,12 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   bool showCvvPopup = false;
   String? modalCvv;
   String? modalPin;
+  PhysicalCardSecurityOption? _securityOptions; // ✅ Track when first fetch completes
+
+  bool? isContactlessEnabled;
+  bool? isEcommerceEnabled;
+  bool? isTpePaymentEnabled;
+  bool? isInternationalWithdrawEnabled;
 
   @override
   void initState() {
@@ -125,6 +140,10 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     print("🔍 INIT_STATE - Calling _fetchCard");
     _fetchCard();
     print("🔍 INIT_STATE - _fetchCard called");
+    
+    // ✅ Start initial security options fetch (timer will start after first success)
+    _fetchSecurityOptions();
+    print("🔍 INIT_STATE - Initial security options fetch started");
   }
 
   Future<void> _fetchCard() async {
@@ -189,15 +208,40 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
           requestedNewCardDate = null;
           print("✅ Detected pending approval scenario");
         }
-        // 🟢 Handle LOST or replacement requested
-        else if (card!.status == 'LOST' || (card!.status == 'NEW_REQUEST' && card!.replacementRequested == true)) {
+        // 🟢 Handle LOST status (card is blocked, replacement not yet requested)
+        else if (card!.status == 'LOST') {
           lostConfirmed = true;
           blockReason = blockReasons.firstWhere((b) => b.value == 'LOST');
           showRequestCard = true;
-          hasRequestedNewCard = true;
-          print("✅ Detected LOST or NEW_REQUEST+replacementRequested scenario");
+          hasRequestedNewCard = false; // ✅ Key fix: not requested yet
+          requestedNewCardDate = null; // ✅ No delivery date yet
+          print("✅ Detected LOST scenario - replacement not yet requested");
         }
-        // 🟢 Map block reasons
+        // 🟢 Handle DAMAGED status (card is blocked, replacement not yet requested)
+        else if (card!.status == 'DAMAGED') {
+          lostConfirmed = true;
+          blockReason = blockReasons.firstWhere((b) => b.value == 'DAMAGED');
+          showRequestCard = true;
+          hasRequestedNewCard = false; // ✅ Key fix: not requested yet
+          requestedNewCardDate = null; // ✅ No delivery date yet
+          print("✅ Detected DAMAGED scenario - replacement not yet requested");
+        }
+        // 🟢 Handle NEW_REQUEST with replacementRequested = true (replacement was requested)
+        else if (card!.status == 'NEW_REQUEST' && card!.replacementRequested == true) {
+          lostConfirmed = true; // ✅ Keep lost confirmed so dropdown stays disabled
+          
+          // ✅ Determine the correct block reason based on the original reason
+          if (card!.blockReason == 'DAMAGED') {
+            blockReason = blockReasons.firstWhere((b) => b.value == 'DAMAGED');
+          } else {
+            blockReason = blockReasons.firstWhere((b) => b.value == 'LOST');
+          }
+          
+          showRequestCard = true;
+          hasRequestedNewCard = true;
+          print("✅ Detected NEW_REQUEST+replacementRequested scenario");
+        }
+        // 🟢 Map other block reasons (STOLEN, DAMAGED, PERMANENT_BLOCK)
         else if (card!.blockReason != null) {
           final matching = blockReasons.where((item) => item.value == card!.blockReason);
           if (matching.isNotEmpty) {
@@ -257,6 +301,38 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
         isLoading = false;
         errorMessage = e.toString();
       });
+    }
+  }
+
+  Future<void> _fetchSecurityOptions() async {
+    if (widget.cardId == null) return;
+
+    try {
+      print("🔍 _FETCH_SECURITY_OPTIONS - Starting fetch");
+      final securityOptions = await SecurityOptionsService().fetchPhysicalCardSecurityOptionById(widget.cardId!);
+      
+      setState(() {
+        isContactlessEnabled = securityOptions.contactlessEnabled;
+        isEcommerceEnabled = securityOptions.ecommerceEnabled;
+        isTpePaymentEnabled = securityOptions.tpeEnabled;
+        isInternationalWithdrawEnabled = securityOptions.internationalWithdrawEnabled;
+        _securityOptions = securityOptions;
+      });
+      
+      // ✅ Start periodic refresh only after first successful fetch
+      if (_securityOptionsTimer == null) {
+        _startSecurityOptionsTimer();
+        print("✅ _FETCH_SECURITY_OPTIONS - Started periodic timer");
+      }
+      
+      print("✅ _FETCH_SECURITY_OPTIONS - Updated state:");
+      print("   contactless: $isContactlessEnabled");
+      print("   ecommerce: $isEcommerceEnabled");
+      print("   tpe: $isTpePaymentEnabled");
+      print("   international: $isInternationalWithdrawEnabled");
+    } catch (e) {
+      print("❌ _FETCH_SECURITY_OPTIONS - Error: $e");
+      // Don't show error to user, just log it
     }
   }
 
@@ -1677,6 +1753,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
             if (blockReason?.value == 'STOLEN') {
               success = await CardService()
                   .requestPhysicalCardReplacementDueToStolen(widget.cardId!);
+            } else if (blockReason?.value == 'DAMAGED') {
+              success = await CardService()
+                  .requestPhysicalCardReplacementDueToDamaged(widget.cardId!);
             } else {
               success = await CardService()
                   .requestPhysicalCardReplacementDueToLoss(widget.cardId!);
@@ -1692,6 +1771,9 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                 if (blockReason?.value == 'STOLEN') {
                   blockReason =
                       blockReasons.firstWhere((b) => b.value == 'STOLEN');
+                } else if (blockReason?.value == 'DAMAGED') {
+                  blockReason =
+                      blockReasons.firstWhere((b) => b.value == 'DAMAGED');
                 } else {
                   blockReason =
                       blockReasons.firstWhere((b) => b.value == 'LOST');
@@ -1817,6 +1899,8 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
             // ✅ Decide which service to call
             if (blockReason?.value == 'STOLEN') {
               success = await CardService().requestPhysicalCardReplacementDueToStolen(widget.cardId!);
+            } else if (blockReason?.value == 'DAMAGED') {
+              success = await CardService().requestPhysicalCardReplacementDueToDamaged(widget.cardId!);
             } else {
               success = await CardService().requestPhysicalCardReplacementDueToLoss(widget.cardId!);
             }
@@ -1951,55 +2035,65 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   }
   Widget _buildCardDeliveryInfo() {
     return Container(
-      width: 360,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      width: 360, // ✅ Fixed width to match button
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE0E0E5), width: 1),
+        color: Colors.white.withOpacity(0.6), // ✅ Match the soft glass look
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.credit_card_rounded,
-            color: Color(0xFF007AFF),
-            size: 26,
+          // ✅ E-banking icons row for consistency
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildIconCircle(Icons.credit_card),
+              const SizedBox(width: 8),
+              _buildIconCircle(Icons.lock_outline),
+              const SizedBox(width: 8),
+              _buildIconCircle(Icons.access_time),
+              const SizedBox(width: 8),
+              _buildIconCircle(Icons.account_balance_wallet),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           const Text(
             "New Card Request Confirmed",
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1C1C1E),
-              letterSpacing: 0.3,
-            ),
             textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1C1C1E),
+            ),
           ),
           const SizedBox(height: 8),
           const Text(
-            "We've received your request for a new card and it is being processed. You'll be notified once it's ready.",
+            "We've received your request for a new card. It is currently being prepared and should be available in your account soon. You will be notified when it's ready.",
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 13.5,
-              height: 1.45,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
               color: Color(0xFF3C3C43),
+              height: 1.4,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F0F7),
+              color: Colors.white.withOpacity(0.3),
               borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.4)),
             ),
             child: Text(
               "Expected after ${_formatDate(requestedNewCardDate!)}",
@@ -2019,68 +2113,85 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFE6F3FF), Color(0xFFD1E9FF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white.withOpacity(0.6), // darker to match inputs
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFB3D9FF), width: 1.5),
+        border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF007AFF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.info_outline_rounded,
-              color: Colors.white,
-              size: 24,
+          // E-banking icons row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildIconCircle(Icons.credit_card),
+              const SizedBox(width: 8),
+              _buildIconCircle(Icons.lock_outline),
+              const SizedBox(width: 8),
+              _buildIconCircle(Icons.access_time),
+              const SizedBox(width: 8),
+              _buildIconCircle(Icons.account_balance_wallet),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "Your Replacement Card is On the Way",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1C1C1E),
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Pending Approval",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1C1E),
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  "Your new card request has been received and is pending approval. Your card will be available in approximately 2–3 weeks.",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF3C3C43),
-                    height: 1.4,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 8),
+          const Text(
+            "We've received your request for a replacement card due to loss. Your new card will be prepared shortly and should be available in your account within 7–10 business days. You can continue using e-banking services without interruption.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF3C3C43),
+              height: 1.4,
             ),
           ),
         ],
       ),
     );
   }
+
+// Helper for icons with a slightly darker color
+  Widget _buildIconCircle(IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.3),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withOpacity(0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Icon(
+        icon,
+        color: Color(0xFF4A4A4D), // slightly darker icon
+        size: 20,
+      ),
+    );
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -2247,29 +2358,48 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                                           backgroundColor: Colors.redAccent,
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                         ),
-                                        onPressed: () {
+                                        onPressed: () async {
                                           Navigator.pop(context);
-                                          setState(() {
-                                            isBlocked = false;
-                                            blockReason = null;
-                                            blockStartDate = null;
-                                            blockEndDate = null;
-                                            isPermanent = false;
-                                            showRequestCard = false;
-                                            lostConfirmed = false;
-                                          });
+                                          
+                                          try {
+                                            // ✅ Call backend service to unblock the card
+                                            await SecurityOptionsService().unblockPhysicalCard(widget.cardId!);
+                                            
+                                            // ✅ Update local state
+                                            setState(() {
+                                              isBlocked = false;
+                                              blockReason = null;
+                                              blockStartDate = null;
+                                              blockEndDate = null;
+                                              isPermanent = false;
+                                              showRequestCard = false;
+                                              lostConfirmed = false;
+                                            });
 
-                                          showCupertinoGlassToast(
-                                            context,
-                                            "Card unblocked and reason cleared.",
-                                            isSuccess: true,
-                                            position: ToastPosition.top,
-                                          );
+                                            // ✅ Show success toast
+                                            if (mounted) {
+                                              showCupertinoGlassToast(
+                                                context,
+                                                "Card unblocked successfully!",
+                                                isSuccess: true,
+                                                position: ToastPosition.top,
+                                              );
+                                            }
+                                          } catch (e) {
+                                            print("❌ Unblock card failed: $e");
+                                            
+                                            // ✅ Show error toast
+                                            if (mounted) {
+                                              showCupertinoGlassToast(
+                                                context,
+                                                "Failed to unblock card. Please try again.",
+                                                isSuccess: false,
+                                                position: ToastPosition.top,
+                                              );
+                                            }
+                                          }
                                         },
-                                        child: const Text(
-                                          "Unblock",
-                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
-                                        ),
+                                        child: const Text("Unblock", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15)),
                                       ),
                                     ),
                                   ],
@@ -2336,105 +2466,90 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                 "Reason for Blocking",
                 Column(
                   children: [
-                    IgnorePointer(
-                      ignoring: false,
-                      child: GestureDetector(
-                        onTap: () {
-                          if (confirmedPermanentBlock && blockReason?.label == 'Permanent Block') {
-                            showCupertinoGlassToast(
-                              context,
-                              "To change the reason, please turn off the 'Block this card' option first.",
-                              isSuccess: false,
-                              position: ToastPosition.top,
-                            );
-                          }
-                        },
-                        child: AbsorbPointer(
-                          absorbing: confirmedPermanentBlock && blockReason?.label == 'Permanent Block',
-                          child:Opacity(
-                            opacity: lostConfirmed ? 0.5 : 1.0, // ✅ visually disabled
-                            child: IgnorePointer(
-                              ignoring: lostConfirmed, // ✅ disables interaction if confirmed lost
-                              child: CustomDropdown(
-                                key: ValueKey(blockReason?.label ?? 'none'),
-                                icon: Icons.warning_amber_rounded,
-                                selectedItem: blockReason,
-                                items: blockReasons,
-                                onChanged: (value) async {
-                                  final today = DateTime.now();
+                    AbsorbPointer(
+                      absorbing: confirmedPermanentBlock && blockReason?.label == 'Permanent Block',
+                      child:Opacity(
+                        opacity: lostConfirmed ? 0.5 : 1.0, // ✅ Disable if lost confirmed (even after request)
+                        child: IgnorePointer(
+                          ignoring: lostConfirmed, // ✅ Disable interaction if lost confirmed (even after request)
+                          child: CustomDropdown(
+                            key: ValueKey(blockReason?.label ?? 'none'),
+                            icon: Icons.warning_amber_rounded,
+                            selectedItem: blockReason,
+                            items: blockReasons,
+                            onChanged: (value) async {
+                              final today = DateTime.now();
 
-                                  final isPermanentSelected = blockReason?.label == 'Permanent Block';
-                                  final isLostStolenDamaged = blockReason?.label == 'Card Lost – Cannot Find It' ||
-                                      blockReason?.label == 'Card Stolen – Unauthorized Use' ||
-                                      blockReason?.label == 'Card Damaged – Not Functional';
+                              final isPermanentSelected = blockReason?.label == 'Permanent Block';
+                              final isLostStolenDamaged = blockReason?.label == 'Card Lost – Cannot Find It' ||
+                                  blockReason?.label == 'Card Stolen – Unauthorized Use' ||
+                                  blockReason?.label == 'Card Damaged – Not Functional';
 
-                                  final isTryingToChangeFromPermanent =
-                                      isPermanentSelected && value.label != 'Permanent Block' && confirmedPermanentBlock && isBlocked;
-                                  final isTryingToChangeFromSpecial =
-                                      isLostStolenDamaged && value.label != blockReason?.label;
+                              final isTryingToChangeFromPermanent =
+                                  isPermanentSelected && value.label != 'Permanent Block' && confirmedPermanentBlock && isBlocked;
+                              final isTryingToChangeFromSpecial =
+                                  isLostStolenDamaged && value.label != blockReason?.label;
 
-                                  if (isTryingToChangeFromPermanent) {
-                                    showCupertinoGlassToast(
-                                      context,
-                                      "To change the reason, please turn off the 'Block this card' option first.",
-                                      isSuccess: false,
-                                      position: ToastPosition.top,
-                                    );
-                                    return;
-                                  }
+                              if (isTryingToChangeFromPermanent) {
+                                showCupertinoGlassToast(
+                                  context,
+                                  "To change the reason, please turn off the 'Block this card' option first.",
+                                  isSuccess: false,
+                                  position: ToastPosition.top,
+                                );
+                                return;
+                              }
 
-                                  if (isTryingToChangeFromSpecial) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text("Clear the current block reason before selecting another."),
-                                        backgroundColor: Colors.redAccent,
-                                      ),
-                                    );
-                                    return;
-                                  }
+                              if (isTryingToChangeFromSpecial) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Clear the current block reason before selecting another."),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                                return;
+                              }
 
-                                  if (value.label == 'Permanent Block') {
-                                    print("🔍 Permanent Block selected - value: ${value.value}");
-                                    _showPermanentBlockDialog();
-                                    setState(() {
-                                      blockReason = value;
-                                      isPermanent = true;
-                                      confirmedPermanentBlock = true;
-                                      showRequestCard = false;
-                                      blockStartDate = null;
-                                      blockEndDate = null;
-                                    });
-                                    print("🔍 blockReason set to: ${blockReason?.value}");
-                                    return;
-                                  }
+                              if (value.label == 'Permanent Block') {
+                                print("🔍 Permanent Block selected - value: ${value.value}");
+                                _showPermanentBlockDialog();
+                                setState(() {
+                                  blockReason = value;
+                                  isPermanent = true;
+                                  confirmedPermanentBlock = true;
+                                  showRequestCard = false;
+                                  blockStartDate = null;
+                                  blockEndDate = null;
+                                });
+                                print("🔍 blockReason set to: ${blockReason?.value}");
+                                return;
+                              }
 
-                                  if (value.label == 'Card Lost – Cannot Find It' ||
-                                      value.label == 'Card Stolen – Unauthorized Use' ||
-                                      value.label == 'Card Damaged – Not Functional') {
-                                    print("🔍 Card Lost/Stolen/Damaged selected - value: ${value.value}");
-                                    setState(() {
-                                      blockReason = value;
-                                    });
-                                    print("🔍 blockReason set to: ${blockReason?.value}");
-                                    _showCardLostDialogs(reasonLabel: value.label); // 👈 Reuse the same modal
-                                    return;
-                                  }
-                                  setState(() {
-                                    blockReason = value;
-                                    isPermanent = true;
-                                    showRequestCard = true;
-                                    confirmedPermanentBlock = false;
-                                    blockStartDate = null;
-                                    blockEndDate = null;
-                                  });
-                                  if (isBlocked && blockReason != null) {
-                                    _startRefreshTimer();
-                                  }
-                                  Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
-                                },
-                                label: '',
-                              ),
-                            ),
+                              if (value.label == 'Card Lost – Cannot Find It' ||
+                                  value.label == 'Card Stolen – Unauthorized Use' ||
+                                  value.label == 'Card Damaged – Not Functional') {
+                                print("🔍 Card Lost/Stolen/Damaged selected - value: ${value.value}");
+                                setState(() {
+                                  blockReason = value;
+                                });
+                                print("🔍 blockReason set to: ${blockReason?.value}");
+                                _showCardLostDialogs(reasonLabel: value.label); // 👈 Reuse the same modal
+                                return;
+                              }
+                              setState(() {
+                                blockReason = value;
+                                isPermanent = true;
+                                showRequestCard = true;
+                                confirmedPermanentBlock = false;
+                                blockStartDate = null;
+                                blockEndDate = null;
+                              });
+                              if (isBlocked && blockReason != null) {
+                                _startRefreshTimer();
+                              }
+                              Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
+                            },
+                            label: '',
                           ),
                         ),
                       ),
@@ -2484,7 +2599,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                             },
                           ),
                         // Request New Card Button and Delivery Span - SIMPLIFIED LOGIC
-                        if (lostConfirmed) ...[
+                        if (lostConfirmed || hasRequestedNewCard) ...[
                           // Show appropriate button based on backend reason
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -2664,7 +2779,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   ),
                 ),
                 UltraSwitch(
-                  value: isDisabled ? false : isContactlessEnabled,
+                  value: isDisabled ? false : (isContactlessEnabled ?? false),
                   onChanged: (val) {
                     setState(() => isContactlessEnabled = val);
                   },
@@ -2709,7 +2824,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   ),
                 ),
                 UltraSwitch(
-                  value: isDisabled ? false : isEcommerceEnabled,
+                  value: isDisabled ? false : (isEcommerceEnabled ?? false),
                   onChanged: (val) {
                     setState(() => isEcommerceEnabled = val);
                   },
@@ -2754,7 +2869,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                   ),
                 ),
                 UltraSwitch(
-                  value: isDisabled ? false : isTpePaymentEnabled,
+                  value: isDisabled ? false : (isTpePaymentEnabled ?? false),
                   onChanged: (val) {
                     setState(() => isTpePaymentEnabled = val);
                   },
@@ -3494,6 +3609,7 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
     _pinController.dispose();
     _scrollController.dispose(); // << Dispose controller
     _refreshTimer?.cancel(); // << Dispose refresh timer
+    _securityOptionsTimer?.cancel(); // << Dispose security options timer
     super.dispose();
   }
   @override
@@ -3720,22 +3836,204 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
                         );
                       },
                     ),
-                    SecuritySettingsSection(
-                      isBlocked: isBlocked,
-                      isContactlessEnabled: isContactlessEnabled,
-                      isEcommerceEnabled: isEcommerceEnabled,
-                      isTpePaymentEnabled: isTpePaymentEnabled,
-                      onContactlessChanged: (val) {
-                        setState(() => isContactlessEnabled = val);
-                      },
-                      onEcommerceChanged: (val) {
-                        setState(() => isEcommerceEnabled = val);
-                      },
-                      onTpeChanged: (val) {
-                        setState(() => isTpePaymentEnabled = val);
-                      },
-                      isPendingApproval: isPendingNewCardApproval, // ✅ Pass pending approval state
-                    ),
+                    // ✅ Only show security settings when we have data to avoid flicker
+                    if (_securityOptions != null)
+                      SecuritySettingsSection(
+                        isBlocked: isBlocked,
+                        isContactlessEnabled: isContactlessEnabled ?? false,
+                        isEcommerceEnabled: isEcommerceEnabled ?? false,
+                        isTpePaymentEnabled: isTpePaymentEnabled ?? false,
+                        isInternationalWithdrawEnabled: isInternationalWithdrawEnabled ?? false,
+                        onContactlessChanged: (val) async {
+                          // ✅ Store previous state for potential rollback
+                          final previousValue = isContactlessEnabled;
+                          
+                          // ✅ Immediately update local UI state
+                          setState(() => isContactlessEnabled = val);
+                          
+                          try {
+                            // ✅ Call backend with all four current values
+                            await SecurityOptionsService().updatePhysicalCardSecurityOptions(
+                              UpdatePhysicalSecurityOptionRequest(
+                                cardId: int.parse(widget.cardId!),
+                                contactlessEnabled: val,
+                                ecommerceEnabled: isEcommerceEnabled ?? false,
+                                tpeEnabled: isTpePaymentEnabled ?? false,
+                                internationalWithdrawEnabled: isInternationalWithdrawEnabled ?? false,
+                              ),
+                            );
+                            
+                            print("✅ Contactless toggle updated successfully");
+                            
+                            // ✅ Show success toast
+                            if (mounted) {
+                              showCupertinoGlassToast(
+                                context,
+                                "Contactless payments ${val ? 'enabled' : 'disabled'}",
+                                isSuccess: true,
+                                position: ToastPosition.top,
+                              );
+                            }
+                          } catch (e) {
+                            print("❌ Contactless toggle update failed: $e");
+                            
+                            // ✅ Show error toast
+                            if (mounted) {
+                              showCupertinoGlassToast(
+                                context,
+                                "Failed to update contactless setting. Please try again.",
+                                isSuccess: false,
+                                position: ToastPosition.top,
+                              );
+                            }
+                            
+                            // ✅ Revert to previous state
+                            setState(() => isContactlessEnabled = previousValue);
+                          }
+                        },
+                        onEcommerceChanged: (val) async {
+                          // ✅ Store previous state for potential rollback
+                          final previousValue = isEcommerceEnabled;
+                          
+                          // ✅ Immediately update local UI state
+                          setState(() => isEcommerceEnabled = val);
+                          
+                          try {
+                            // ✅ Call backend with all four current values
+                            await SecurityOptionsService().updatePhysicalCardSecurityOptions(
+                              UpdatePhysicalSecurityOptionRequest(
+                                cardId: int.parse(widget.cardId!),
+                                contactlessEnabled: isContactlessEnabled ?? false,
+                                ecommerceEnabled: val,
+                                tpeEnabled: isTpePaymentEnabled ?? false,
+                                internationalWithdrawEnabled: isInternationalWithdrawEnabled ?? false,
+                              ),
+                            );
+                            
+                            print("✅ E-commerce toggle updated successfully");
+                            
+                            // ✅ Show success toast
+                            if (mounted) {
+                              showCupertinoGlassToast(
+                                context,
+                                "E-commerce payments ${val ? 'enabled' : 'disabled'}",
+                                isSuccess: true,
+                                position: ToastPosition.top,
+                              );
+                            }
+                          } catch (e) {
+                            print("❌ E-commerce toggle update failed: $e");
+                            
+                            // ✅ Show error toast
+                            if (mounted) {
+                              showCupertinoGlassToast(
+                                context,
+                                "Failed to update e-commerce setting. Please try again.",
+                                isSuccess: false,
+                                position: ToastPosition.top,
+                              );
+                            }
+                            
+                            // ✅ Revert to previous state
+                            setState(() => isEcommerceEnabled = previousValue);
+                          }
+                        },
+                        onTpeChanged: (val) async {
+                          // ✅ Store previous state for potential rollback
+                          final previousValue = isTpePaymentEnabled;
+                          
+                          // ✅ Immediately update local UI state
+                          setState(() => isTpePaymentEnabled = val);
+                          
+                          try {
+                            // ✅ Call backend with all four current values
+                            await SecurityOptionsService().updatePhysicalCardSecurityOptions(
+                              UpdatePhysicalSecurityOptionRequest(
+                                cardId: int.parse(widget.cardId!),
+                                contactlessEnabled: isContactlessEnabled ?? false,
+                                ecommerceEnabled: isEcommerceEnabled ?? false,
+                                tpeEnabled: val,
+                                internationalWithdrawEnabled: isInternationalWithdrawEnabled ?? false,
+                              ),
+                            );
+                            
+                            print("✅ TPE toggle updated successfully");
+                            
+                            // ✅ Show success toast
+                            if (mounted) {
+                              showCupertinoGlassToast(
+                                context,
+                                "TPE payments ${val ? 'enabled' : 'disabled'}",
+                                isSuccess: true,
+                                position: ToastPosition.top,
+                              );
+                            }
+                          } catch (e) {
+                            print("❌ TPE toggle update failed: $e");
+                            
+                            // ✅ Show error toast
+                            if (mounted) {
+                              showCupertinoGlassToast(
+                                context,
+                                "Failed to update TPE setting. Please try again.",
+                                isSuccess: false,
+                                position: ToastPosition.top,
+                              );
+                            }
+                            
+                            // ✅ Revert to previous state
+                            setState(() => isTpePaymentEnabled = previousValue);
+                          }
+                        },
+                        onInternationalWithdrawChanged: (val) async {
+                          // ✅ Store previous state for potential rollback
+                          final previousValue = isInternationalWithdrawEnabled;
+                          
+                          // ✅ Immediately update local UI state
+                          setState(() => isInternationalWithdrawEnabled = val);
+                          
+                          try {
+                            // ✅ Call backend with all four current values
+                            await SecurityOptionsService().updatePhysicalCardSecurityOptions(
+                              UpdatePhysicalSecurityOptionRequest(
+                                cardId: int.parse(widget.cardId!),
+                                contactlessEnabled: isContactlessEnabled ?? false,
+                                ecommerceEnabled: isEcommerceEnabled ?? false,
+                                tpeEnabled: isTpePaymentEnabled ?? false,
+                                internationalWithdrawEnabled: val,
+                              ),
+                            );
+                            
+                            print("✅ International withdraw toggle updated successfully");
+                            
+                            // ✅ Show success toast
+                            if (mounted) {
+                              showCupertinoGlassToast(
+                                context,
+                                "International withdrawals ${val ? 'enabled' : 'disabled'}",
+                                isSuccess: true,
+                                position: ToastPosition.top,
+                              );
+                            }
+                          } catch (e) {
+                            print("❌ International withdraw toggle update failed: $e");
+                            
+                            // ✅ Show error toast
+                            if (mounted) {
+                              showCupertinoGlassToast(
+                                context,
+                                "Failed to update international withdraw setting. Please try again.",
+                                isSuccess: false,
+                                position: ToastPosition.top,
+                              );
+                            }
+                            
+                            // ✅ Revert to previous state
+                            setState(() => isInternationalWithdrawEnabled = previousValue);
+                          }
+                        },
+                        isPendingApproval: isPendingNewCardApproval, // ✅ Pass pending approval state
+                      ),
                     _buildBlockCardSection(),
                   ],
 
@@ -3808,6 +4106,23 @@ class _PhysicalCardDetailsScreenState extends State<PhysicalCardDetailsScreen>
   void _stopRefreshTimer() {
     _refreshTimer?.cancel();
     _refreshTimer = null;
+  }
+
+  // --- Add this helper to manage the security options timer ---
+  void _startSecurityOptionsTimer() {
+    _securityOptionsTimer?.cancel();
+    _securityOptionsTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _fetchSecurityOptions();
+    });
+  }
+
+  void _stopSecurityOptionsTimer() {
+    _securityOptionsTimer?.cancel();
+    _securityOptionsTimer = null;
   }
 }
 
