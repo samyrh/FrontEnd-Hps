@@ -22,10 +22,6 @@ public class CardSecurityEventProducer {
         payload.setCategory(EventCategory.VIRTUAL_CARD_CANCELED);
         sendToTopic("card.virtual.canceled", payload);
     }
-    public void sendPhysicalCardUnblocked(EventPayload payload) {
-        payload.setCategory(EventCategory.PHYSICAL_CARD_UNBLOCKED);
-        sendToTopic("card.physical.unblocked", payload);
-    }
 
     // ✅ NEW: Sends event when a virtual card is reactivated (uncanceled)
     public void sendVirtualCardReactivated(EventPayload payload) {
@@ -33,10 +29,6 @@ public class CardSecurityEventProducer {
         sendToTopic("card.virtual.reactivated", payload);
     }
 
-    public void sendPhysicalCardCanceled(EventPayload payload) {
-        payload.setCategory(EventCategory.PHYSICAL_CARD_CANCELED);
-        sendToTopic("card.physical.canceled", payload);
-    }
 
     // Sends event when a card request is created
     public void sendCardRequestCreated(EventPayload payload) {

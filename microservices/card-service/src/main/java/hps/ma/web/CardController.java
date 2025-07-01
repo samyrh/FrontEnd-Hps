@@ -144,21 +144,6 @@ public class CardController {
         );
         return ResponseEntity.ok("Card security options updated");
     }
-    @PutMapping("/physical-card/security-options/update")
-    public ResponseEntity<?> updatePhysicalCardSecurityOptions(
-            @RequestBody UpdatePhysicalSecurityOptionRequest request
-    ) {
-        cardService.updatePhysicalCardSecurityOptions(
-                request.getCardId(),
-                request.getContactlessEnabled(),
-                request.getEcommerceEnabled(),
-                request.getTpeEnabled(),
-                request.getInternationalWithdrawEnabled()
-        );
-        return ResponseEntity.ok("✅ Physical card security options updated.");
-    }
-
-
 
     @GetMapping("/my-cards")
     public ResponseEntity<?> getAllMyCards(@RequestHeader("Authorization") String token)   {
@@ -331,47 +316,5 @@ public class CardController {
             return ResponseEntity.status(500).body("❌ Error: " + e.getMessage());
         }
     }
-    @PutMapping("/physical-card/{cardId}/request-replacement-due-to-damaged")
-    public ResponseEntity<String> requestPhysicalCardReplacementDueToDamaged(
-            @RequestHeader("Authorization") String token,
-            @PathVariable Long cardId) {
-        try {
-            cardService.requestPhysicalCardReplacementDueToDamaged(token, cardId);
-            return ResponseEntity.ok("✅ Replacement requested successfully for damaged card.");
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("❌ Error: " + e.getMessage());
-        }
-    }
-    @GetMapping("/physical-cards/{cardId}/security-option")
-    public ResponseEntity<?> getPhysicalCardSecurityOptionById(
-            @RequestHeader("Authorization") String token,
-            @PathVariable Long cardId) {
-        try {
-            CardSecurityOptionsWithIdDTO option = cardService.getPhysicalCardSecurityOptionById(token, cardId);
-            return ResponseEntity.ok(option);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("❌ Error: " + e.getMessage());
-        }
-    }
-    @PutMapping("/physical-card/{cardId}/unblock")
-    public ResponseEntity<?> unblockPhysicalCard(@PathVariable Long cardId) {
-        try {
-            cardService.unblockPhysicalCard(cardId);
-            return ResponseEntity.ok("✅ Physical card unblocked successfully.");
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("❌ Error: " + e.getMessage());
-        }
-    }
-
-    @PutMapping("/physical-card/{cardId}/cancel")
-    public ResponseEntity<?> cancelPhysicalCard(@PathVariable Long cardId) {
-        try {
-            cardService.cancelPhysicalCard(cardId);
-            return ResponseEntity.ok("✅ Physical card canceled successfully.");
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("❌ Error: " + e.getMessage());
-        }
-    }
-
 
 }

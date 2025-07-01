@@ -231,44 +231,4 @@ public class CardholderController {
         return ResponseEntity.ok(Map.of("enabled", status));
     }
 
-
-    @PostMapping("/physical-card/generate-otp")
-    public ResponseEntity<?> generatePhysicalCardOtp(@RequestBody Map<String, String> request) {
-        String username = request.get("username");
-
-        Optional<Cardholder> cardholderOpt = cardholderReository.findByUsername(username);
-        if (cardholderOpt.isEmpty()) {
-            return ResponseEntity.status(404).body("User not found");
-        }
-
-        String email = cardholderOpt.get().getEmail();
-
-        // 📨 Send OTP via batch job (reusing the same mechanism)
-        OtpJobResult result = otpBatchJob.execute(email);
-
-        return ResponseEntity.ok(result);
-    }
-
-
-    @PostMapping("/physical-card/verify-otp")
-    public ResponseEntity<?> verifyPhysicalCardOtp(@RequestBody Map<String, String> request) {
-        String username = request.get("username");
-        String otp = request.get("otp");
-
-        Optional<Cardholder> cardholderOpt = cardholderReository.findByUsername(username);
-        if (cardholderOpt.isEmpty()) {
-            return ResponseEntity.status(404).body("User not found");
-        }
-
-        String email = cardholderOpt.get().getEmail();
-
-        System.out.println("📨 Verifying Physical Card OTP: " + otp + " for email: " + email);
-
-        OtpJobResult result = otpBatchJob.verify(email, otp);
-
-        return result.isSuccess()
-                ? ResponseEntity.ok(result)
-                : ResponseEntity.status(401).body(result);
-    }
-
 }
