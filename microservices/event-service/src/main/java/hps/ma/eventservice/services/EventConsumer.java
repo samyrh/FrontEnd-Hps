@@ -435,4 +435,56 @@ public class EventConsumer {
         }
     }
 
+
+    @KafkaListener(topics = "card.physical.unblocked", groupId = "event-service")
+    public void onPhysicalCardUnblocked(String json) {
+        try {
+            EventPayload payload = objectMapper.readValue(json, EventPayload.class);
+
+            // Store in DB
+            storeEvent(payload);
+
+            // Log details
+            System.out.println("🟢 Physical card unblocked:");
+            System.out.println("    → Username: " + payload.getUsername());
+            System.out.println("    → Email: " + payload.getEmail());
+            System.out.println("    → Card ID: " + payload.getCardId());
+            System.out.println("    → Message: " + payload.getMessage());
+
+            if (payload.getCategory() == EventCategory.PHYSICAL_CARD_UNBLOCKED) {
+                System.out.println("📮 Event Category: PHYSICAL_CARD_UNBLOCKED");
+                // No email—only store event
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to process card.physical.unblocked event: " + e.getMessage());
+        }
+    }
+
+
+    @KafkaListener(topics = "card.physical.canceled", groupId = "event-service")
+    public void onPhysicalCardCanceled(String json) {
+        try {
+            EventPayload payload = objectMapper.readValue(json, EventPayload.class);
+
+            // Save event to DB
+            storeEvent(payload);
+
+            // Log details
+            System.out.println("🔴 Physical card canceled:");
+            System.out.println("    → Username: " + payload.getUsername());
+            System.out.println("    → Email: " + payload.getEmail());
+            System.out.println("    → Card ID: " + payload.getCardId());
+            System.out.println("    → Message: " + payload.getMessage());
+
+            if (payload.getCategory() == EventCategory.PHYSICAL_CARD_CANCELED) {
+                System.out.println("📮 Event Category: PHYSICAL_CARD_CANCELED");
+                // No email needed—only store the event
+            }
+
+        } catch (Exception e) {
+            System.err.println("❌ Failed to process card.physical.canceled event: " + e.getMessage());
+        }
+    }
+
 }
