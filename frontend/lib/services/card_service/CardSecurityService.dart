@@ -3,8 +3,6 @@ import 'package:hps_direct/dto/card_dto/BlockVirtualCardRequest.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../dto/card_dto/CardSecurityOptionsModel.dart';
-import '../../dto/card_dto/PhysicalCardSecurityOption.dart';
-import '../../dto/card_dto/UpdatePhysicalSecurityOptionRequest.dart';
 import '../../dto/card_dto/UpdateSecurityOptionRequest.dart';
 import '../../dto/card_dto/VirtualSecurityOption.dart';
 
@@ -250,82 +248,6 @@ class SecurityOptionsService {
 
     if (response.statusCode != 200) {
       throw Exception("Failed to block physical card: ${response.body}");
-    }
-  }
-
-  Future<PhysicalCardSecurityOption> fetchPhysicalCardSecurityOptionById(String cardId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwt_token');
-    if (token == null) {
-      throw Exception("Not authenticated.");
-    }
-
-    final uri = Uri.parse("$_baseUrl/api/cards/physical-cards/$cardId/security-option");
-
-    try {
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': "Bearer $token",
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return PhysicalCardSecurityOption.fromJson(data);
-      } else {
-        print("❌ Server error: ${response.statusCode} - ${response.body}");
-        throw Exception("Failed to load physical card security option.");
-      }
-    } catch (e) {
-      print("❌ Network error: $e");
-      throw Exception("Failed to fetch physical card security option.");
-    }
-  }
-  Future<void> updatePhysicalCardSecurityOptions(UpdatePhysicalSecurityOptionRequest request) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwt_token');
-    if (token == null) {
-      throw Exception("Not authenticated.");
-    }
-
-    final uri = Uri.parse("$_baseUrl/api/cards/physical-card/security-options/update");
-
-    final response = await http.put(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(request.toJson()),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception("Failed to update physical card security options: ${response.body}");
-    }
-  }
-
-
-  Future<void> unblockPhysicalCard(String cardId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwt_token');
-    if (token == null) {
-      throw Exception("Not authenticated.");
-    }
-
-    final uri = Uri.parse("$_baseUrl/api/cards/physical-card/$cardId/unblock");
-
-    final response = await http.put(
-      uri,
-      headers: {
-        'Authorization': "Bearer $token",
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception("Failed to unblock physical card: ${response.body}");
     }
   }
 
