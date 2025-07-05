@@ -1,58 +1,63 @@
 // src/component/Popup.jsx
 import {
-    Box,
     Flex,
+    Box,
     Text,
     Icon,
     CloseButton,
-    useColorModeValue,
 } from '@chakra-ui/react';
 import { FaRegHandPeace } from 'react-icons/fa';
 
 export default function Popup({ onClose }) {
-    const bg = useColorModeValue('#FFF5E0', '#c6744b'); // soft cream for light mode
-    const border = useColorModeValue('1px solid #FFB672', '1px solid #FFB672');
-    const textColor = useColorModeValue('black', 'white');
-    const subTextColor = useColorModeValue('#ED8936', '#f38b23'); // ✅ orange subtext!
+    // Fixed peachy colors
+    const bg = '#FFF5EC';         // Main background
+    const iconBg = '#FFE8D9';     // Icon background
+    const iconColor = '#DD6B20';  // Icon orange
+    const titleColor = '#1A202C'; // Dark text
+    const descColor = '#4A5568';  // Gray text
 
     return (
         <Flex
             position="fixed"
-            top="20px"
+            top="24px"
             left="50%"
             transform="translateX(-50%)"
             bg={bg}
-            border={border}
-            borderRadius="16px"
-            boxShadow="0px 10px 30px rgba(255, 183, 114, 0.2)"
-            p="16px"
-            zIndex="9999"
-            minW="340px"
-            maxW="90vw"
+            borderRadius="12px"
+            p="14px 16px"
             align="center"
+            zIndex="9999"
+            minW="320px"
+            maxW="90vw"
+            boxShadow="sm"
         >
             <Box
-                bg="#FFEDD5"
+                bg={iconBg}
                 borderRadius="full"
-                p="8px"
+                p="6px"
                 display="flex"
                 alignItems="center"
                 justifyContent="center"
-                mr="14px"
+                mr="12px"
             >
-                <Icon as={FaRegHandPeace} boxSize={5} color="#ED8936" />
+                <Icon as={FaRegHandPeace} boxSize={4} color={iconColor} />
             </Box>
 
             <Box flex="1">
-                <Text fontWeight="bold" fontSize="sm" color={textColor}>
+                <Text fontWeight="semibold" fontSize="sm" color={titleColor} mb="1px">
                     Almost done!
                 </Text>
-                <Text fontSize="xs" fontWeight="medium" color={subTextColor}>
+                <Text fontSize="xs" color={descColor}>
                     Complete registration to finish adding the user.
                 </Text>
             </Box>
 
-            <CloseButton onClick={onClose} ml="12px" />
+            <CloseButton
+                onClick={onClose}
+                ml="8px"
+                size="sm"
+                color={descColor}
+            />
         </Flex>
     );
 }

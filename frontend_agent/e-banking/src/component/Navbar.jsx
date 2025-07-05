@@ -23,6 +23,7 @@ import {
     SunIcon,
     MoonIcon,
 } from '@chakra-ui/icons';
+import { useNavigate } from 'react-router-dom'; // ✅ Import useNavigate
 
 const SearchBar = () => {
     const placeholderColor = useColorModeValue('gray.500', 'whiteAlpha.500');
@@ -48,6 +49,7 @@ const SearchBar = () => {
 
 export default function Navbar({ brandText }) {
     const { colorMode, toggleColorMode } = useColorMode();
+    const navigate = useNavigate(); // ✅ Initialize navigate
 
     const navbarBg = useColorModeValue('rgba(255, 255, 255, 0.25)', 'rgba(11, 20, 55, 0.4)');
     const mainText = useColorModeValue('gray.800', 'white');
@@ -66,7 +68,7 @@ export default function Navbar({ brandText }) {
             bg={navbarBg}
             backdropFilter="blur(16px)"
             borderRadius="16px"
-            boxShadow="0 8px 32px rgba(0, 0, 0, 0.1)"  // glass-style shadow
+            boxShadow="0 8px 32px rgba(0, 0, 0, 0.1)" // glass-style shadow
             px="24px"
             h="120px"
         >
@@ -110,8 +112,21 @@ export default function Navbar({ brandText }) {
                         <SearchBar />
                     </Box>
 
-                    <IconButton aria-label="Notifications" icon={<BellIcon boxSize={5} />} variant="ghost" color={iconColor} size="sm" />
-                    <IconButton aria-label="Info" icon={<InfoOutlineIcon boxSize={5} />} variant="ghost" color={iconColor} size="sm" />
+                    <IconButton
+                        aria-label="Notifications"
+                        icon={<BellIcon boxSize={5} />}
+                        variant="ghost"
+                        color={iconColor}
+                        size="sm"
+                        onClick={() => navigate("/notifications")} // ✅ Navigate to notifications
+                    />
+                    <IconButton
+                        aria-label="Info"
+                        icon={<InfoOutlineIcon boxSize={5} />}
+                        variant="ghost"
+                        color={iconColor}
+                        size="sm"
+                    />
                     <IconButton
                         aria-label="Toggle Theme"
                         boxSize={5}

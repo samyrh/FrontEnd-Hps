@@ -8,6 +8,8 @@ import TravelPlan from '../layers/TravelPlan';
 import AgentProfile from '../layers/AgentProfile';
 import CardsDetails from '../layers/CardsDetails';
 import Notifications from "../layers/Notifications";
+import Transactions from "../layers/Transactions";
+
 
 
 export default function AppRoutes() {
@@ -21,6 +23,7 @@ export default function AppRoutes() {
             <Route path="/travel" element={<TravelPlan />} />
             <Route path="/profile" element={<AgentProfile />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/transactions" element={<Transactions />} />
             <Route path="*" element={<Navigate to="/" />} />
         </Routes>
     );

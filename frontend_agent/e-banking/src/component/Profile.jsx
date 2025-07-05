@@ -1,119 +1,228 @@
-import React from 'react';
+import React from "react";
 import {
-    Box, Text, Flex, Avatar, Button, useColorModeValue, Badge, VStack, Divider, SimpleGrid
-} from '@chakra-ui/react';
-import { EmailIcon, PhoneIcon, CalendarIcon, StarIcon, LockIcon, TimeIcon } from '@chakra-ui/icons';
+    Box,
+    Flex,
+    Avatar,
+    Text,
+    Badge,
+    Button,
+    Stack,
+    useColorModeValue,
+    SimpleGrid,
+    VStack,
+    HStack,
+    Icon,
+} from "@chakra-ui/react";
+import { CheckCircleIcon, WarningIcon, LockIcon, RepeatIcon } from "@chakra-ui/icons";
 
-const Profile = () => {
-    const bgContainer = useColorModeValue('#ffffff', '#18214a');
-    const gradientBg = useColorModeValue('#f4f7fe', 'linear(to-br, #131c34, #1e2a48)');
-    const boxShadowColor = useColorModeValue('rgba(0, 0, 0, 0.1)', 'rgba(0,0,0,0.4)');
-    const cardBg = useColorModeValue('#ffffff', '#22304c');
-    const textColor = useColorModeValue('#0b1437', '#ffffff');
-    const labelColor = useColorModeValue('gray.600', 'gray.400');
-
-    // ✅ Using an online professional agent photo (replace with your own if needed)
-    const profileImage =
-        'https://i.imgur.com/zXjvZpQ.png';  // professional agent female profile
+export default function  Profile() {
+    const bg = useColorModeValue("white", "#141f52");
+    const cardBg = useColorModeValue("gray.100", "#1e2768");
+    const textColor = useColorModeValue("gray.800", "white");
+    const borderColor = useColorModeValue("gray.200", "#2c3475");
+    const pageBg = useColorModeValue("gray.50", "#0b1437"); // Slightly darker page background
 
     return (
-        <Box minH="100vh" bg={gradientBg} py={10} px={4}>
+        <Flex
+            bg={pageBg}
+            minH="100vh"
+            justify="center"
+            align="start"
+            p={6}
+        >
             <Box
-                p={10}
-                bg={bgContainer}
-                borderRadius="xl"
-                boxShadow={`0 4px 30px ${boxShadowColor}`}
-                maxW="900px"
-                mx="auto"
+                bg={bg}
+                color={textColor}
+                w="100%"
+                maxW="1200px"
+                borderRadius="2xl"
+                boxShadow="lg"
+                p={6}
             >
-                <Text fontSize="3xl" fontWeight="bold" mb={10} textAlign="center" color={textColor}>
-                    Agent Profile
-                </Text>
+                <Flex
+                    direction={{ base: "column", md: "row" }}
+                    align="center"
+                    justify="space-between"
+                    mb={6}
+                >
+                    <HStack spacing={4}>
+                        <Avatar size="xl" name="Sarah Thompson" src="https://i.pravatar.cc/150?img=32" />
+                        <Box>
+                            <Text fontSize="2xl" fontWeight="bold">
+                                Sarah Thompson
+                            </Text>
+                            <Text>Agent</Text>
+                            <HStack mt={2}>
+                                <Badge colorScheme="green">Active</Badge>
+                                <Text fontSize="sm" opacity={0.7}>
+                                    Last login: 2 hours ago
+                                </Text>
+                            </HStack>
+                        </Box>
+                    </HStack>
+                    <HStack mt={{ base: 4, md: 0 }}>
+                        <Button colorScheme="blue">Edit Profile</Button>
+                        <Button colorScheme="red" variant="outline">
+                            Suspend Account
+                        </Button>
+                        <Button variant="ghost">Reset Password</Button>
+                    </HStack>
+                </Flex>
 
-                <Box bg={cardBg} borderRadius="lg" boxShadow="md" p={8} mb={8} textAlign="center">
-                    {/* Avatar with embedded image */}
-                    <Box
-                        mx="auto"
-                        mb={4}
-                        borderRadius="full"
-                        border="4px solid"
-                        borderColor="blue.400"
-                        p="5px"
-                        width="fit-content"
-                        boxShadow="0 0 15px rgba(66,153,225,0.6)"
-                    >
-                        <Avatar size="2xl" name="Dianne Russell" src={profileImage} />
+                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mb={4}>
+                    {/* Capabilities */}
+                    <Box bg={cardBg} p={4} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                        <Text fontWeight="semibold" mb={2}>
+                            Capabilities & Permissions
+                        </Text>
+                        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                            <HStack
+                                bg={useColorModeValue("gray.100", "whiteAlpha.200")}
+                                px={3}
+                                py={2}
+                                borderRadius="md"
+                                spacing={2}
+                            >
+                                <CheckCircleIcon color="green.400" />
+                                <Text fontSize="sm">CVV Regenerated</Text>
+                            </HStack>
+                            <HStack
+                                bg={useColorModeValue("gray.100", "whiteAlpha.200")}
+                                px={3}
+                                py={2}
+                                borderRadius="md"
+                                spacing={2}
+                            >
+                                <CheckCircleIcon color="green.400" />
+                                <Text fontSize="sm">Block/Unblock Card</Text>
+                            </HStack>
+                            <HStack
+                                bg={useColorModeValue("gray.100", "whiteAlpha.200")}
+                                px={3}
+                                py={2}
+                                borderRadius="md"
+                                spacing={2}
+                            >
+                                <CheckCircleIcon color="green.400" />
+                                <Text fontSize="sm">Travel Plan Review</Text>
+                            </HStack>
+                            <HStack
+                                bg={useColorModeValue("red.50", "red.400")}
+                                px={3}
+                                py={2}
+                                borderRadius="md"
+                                spacing={2}
+                            >
+                                <WarningIcon color={useColorModeValue("red.500", "white")} />
+                                <Text fontSize="sm">Admin Access</Text>
+                            </HStack>
+                        </SimpleGrid>
                     </Box>
 
-                    <Text fontSize="2xl" fontWeight="bold" color={textColor}>
-                        Dianne Russell
-                    </Text>
-                    <Text fontSize="md" color={labelColor} mb={2}>Role: Agent</Text>
 
-                    {/* Fun badges */}
-                    <Flex justify="center" gap={3} mt={3} flexWrap="wrap">
-                        <Badge px={4} py={1} borderRadius="full" colorScheme="green" fontSize="0.9em">Active</Badge>
-                        <Badge px={4} py={1} borderRadius="full" colorScheme="purple" fontSize="0.9em">⭐ Top Performer</Badge>
-                        <Badge px={4} py={1} borderRadius="full" colorScheme="blue" fontSize="0.9em">🔒 Secure Access</Badge>
-                    </Flex>
-                </Box>
-
-                {/* Activity Snapshot */}
-                <SimpleGrid columns={[1, 3]} spacing={6} mb={8}>
-                    <Box bg={cardBg} borderRadius="lg" p={6} textAlign="center" boxShadow="md">
-                        <StarIcon boxSize={6} color="yellow.400" mb={3} />
-                        <Text fontWeight="bold" fontSize="xl" color={textColor}>32</Text>
-                        <Text color={labelColor}>Travel Plans Reviewed</Text>
+                    {/* Security */}
+                    <Box bg={cardBg} p={4} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                        <Text fontWeight="semibold" mb={2}>
+                            Security & Authentication
+                        </Text>
+                        <VStack align="start" spacing={2}>
+                            <HStack>
+                                <CheckCircleIcon color="green.400" />
+                                <Text>2FA Enabled</Text>
+                            </HStack>
+                            <HStack>
+                                <CheckCircleIcon color="green.400" />
+                                <Text>Security Code Setup</Text>
+                            </HStack>
+                            <HStack>
+                                <LockIcon color="gray.400" />
+                                <Text>Biometric Login</Text>
+                            </HStack>
+                            <HStack>
+                                <LockIcon color="gray.400" />
+                                <Text>Account Locked</Text>
+                            </HStack>
+                        </VStack>
+                        <Text mt={3} fontWeight="semibold">
+                            Roles
+                        </Text>
+                        <Stack mt={1}>
+                            <Badge colorScheme="green">Card Support Agent</Badge>
+                            <Badge colorScheme="green">Travel Plan Agent</Badge>
+                        </Stack>
                     </Box>
 
-                    <Box bg={cardBg} borderRadius="lg" p={6} textAlign="center" boxShadow="md">
-                        <LockIcon boxSize={6} color="cyan.300" mb={3} />
-                        <Text fontWeight="bold" fontSize="xl" color={textColor}>18</Text>
-                        <Text color={labelColor}>Cards Activated</Text>
-                    </Box>
-
-                    <Box bg={cardBg} borderRadius="lg" p={6} textAlign="center" boxShadow="md">
-                        <TimeIcon boxSize={6} color="orange.300" mb={3} />
-                        <Text fontWeight="bold" fontSize="xl" color={textColor}>3h ago</Text>
-                        <Text color={labelColor}>Last Login</Text>
+                    {/* Assigned Cardholders */}
+                    <Box bg={cardBg} p={4} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                        <Text fontWeight="semibold" mb={2}>
+                            Assigned Cardholders
+                        </Text>
+                        <VStack align="start" spacing={3}>
+                            <HStack justify="space-between" w="full">
+                                <HStack>
+                                    <Avatar size="sm" name="John Doe" />
+                                    <Text>John Doe</Text>
+                                </HStack>
+                                <Badge colorScheme="green">Active</Badge>
+                            </HStack>
+                            <HStack justify="space-between" w="full">
+                                <HStack>
+                                    <Avatar size="sm" name="Jane Smith" />
+                                    <Text>Jane Smith</Text>
+                                </HStack>
+                                <Badge colorScheme="yellow">Suspended</Badge>
+                            </HStack>
+                            <HStack justify="space-between" w="full">
+                                <HStack>
+                                    <Avatar size="sm" name="Michael Doe" />
+                                    <Text>Michael Doe</Text>
+                                </HStack>
+                                <Badge colorScheme="gray">PIN Reset</Badge>
+                            </HStack>
+                        </VStack>
                     </Box>
                 </SimpleGrid>
 
-                {/* Contact Info */}
-                <Box bg={cardBg} borderRadius="lg" boxShadow="md" p={8} mb={8}>
-                    <VStack spacing={5} align="start">
-                        <Box>
-                            <Flex align="center" mb={1}><EmailIcon mr={2} /><Text fontWeight="semibold" color={labelColor}>Email:</Text></Flex>
-                            <Text color={textColor}>dianne.russell@banking.com</Text>
-                        </Box>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    {/* Recent Cardholder Actions */}
+                    <Box bg={cardBg} p={4} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                        <Text fontWeight="semibold" mb={2}>
+                            Recent Cardholder Actions
+                        </Text>
+                        <VStack align="start" spacing={3}>
+                            <HStack>
+                                <Icon as={RepeatIcon} color="blue.400" />
+                                <Text>CVV Regenerated – John Doe</Text>
+                            </HStack>
+                            <HStack>
+                                <Icon as={CheckCircleIcon} color="blue.400" />
+                                <Text>Travel Plan Approved – Spain Trip</Text>
+                            </HStack>
+                            <HStack>
+                                <Icon as={WarningIcon} color="red.400" />
+                                <Text>Card Blocked – Fraud Suspected</Text>
+                            </HStack>
+                            <HStack>
+                                <Icon as={LockIcon} color="gray.400" />
+                                <Text>Card Cancellation in Progress</Text>
+                            </HStack>
+                        </VStack>
+                    </Box>
 
-                        <Box>
-                            <Flex align="center" mb={1}><PhoneIcon mr={2} /><Text fontWeight="semibold" color={labelColor}>Phone:</Text></Flex>
-                            <Text color={textColor}>+212 600 000 000</Text>
-                        </Box>
-
-                        <Box>
-                            <Flex align="center" mb={1}><CalendarIcon mr={2} /><Text fontWeight="semibold" color={labelColor}>Joined On:</Text></Flex>
-                            <Text color={textColor}>2024-01-15</Text>
-                        </Box>
-                    </VStack>
-                </Box>
-
-                {/* Motivation quote */}
-                <Box textAlign="center" mb={10}>
-                    <Text fontSize="lg" fontStyle="italic" color={labelColor}>
-                        “Empowering customers with speed and security!”
-                    </Text>
-                </Box>
-
-                {/* Action buttons */}
-                <Flex justify="center" gap={8}>
-                    <Button colorScheme="blue" borderRadius="full" px={8}>Edit Profile</Button>
-                    <Button colorScheme="red" variant="outline" borderRadius="full" px={8}>Deactivate</Button>
-                </Flex>
+                    {/* Activity Log */}
+                    <Box bg={cardBg} p={4} borderRadius="lg" border="1px solid" borderColor={borderColor}>
+                        <Text fontWeight="semibold" mb={2}>
+                            Activity Log
+                        </Text>
+                        <VStack align="start" spacing={2}>
+                            <Text>06.10.24 – Approved Travel Plan</Text>
+                            <Text>06.08.24 – Reset Card PIN</Text>
+                            <Text>06.07.24 – Blocked Card (Fraud)</Text>
+                            <Text>06.07.24 – Created Cardholder Account</Text>
+                        </VStack>
+                    </Box>
+                </SimpleGrid>
             </Box>
-        </Box>
+        </Flex>
     );
-};
-
-export default Profile;
+}

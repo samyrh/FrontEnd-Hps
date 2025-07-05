@@ -2,7 +2,8 @@ import { Box, useColorModeValue } from '@chakra-ui/react';
 import Sidebar from '../component/Sidebar';
 import Navbar from '../component/Navbar';
 import CardSummaryPanel from '../component/CardSummaryPanel';
-import CardTable from '../component/CardTable'; // ✅ Make sure this is created
+import CardTable from '../component/CardTable';
+import NewRequestsTable from '../component/NewRequestsTable'; // ✅ Import here
 
 export default function Cards() {
     const bg = useColorModeValue('#f4f7fe', '#0b1437');
@@ -22,9 +23,15 @@ export default function Cards() {
                 {/* Main content */}
                 <Box pt="180px" px={{ base: '20px', md: '40px', lg: '60px' }} flex="1">
                     <CardSummaryPanel />
-                    <CardTable /> {/* ✅ Display the card table below the summary */}
-                </Box>
 
+                    <Box mb={10}>
+                        <CardTable />
+                    </Box>
+
+                    <Box mt={4}>
+                        <NewRequestsTable />
+                    </Box>
+                </Box>
             </Box>
         </Box>
     );

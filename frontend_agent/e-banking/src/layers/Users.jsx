@@ -41,7 +41,7 @@ export default function Users() {
         if (filledCount > 0 && filledCount < 3) {
             popupTimerRef.current = setTimeout(() => {
                 setShowPopup(true);
-            }, 60000); // ⏱️ 1 minute
+            }, 20000); // ⏱️ 1 minute
         } else {
             setShowPopup(false);
         }

@@ -1,9 +1,22 @@
 // src/component/Sidebar.jsx
 import {
-    Box, Flex, Icon, Text, VStack, Divider, useColorModeValue
+    Box,
+    Flex,
+    Icon,
+    Text,
+    VStack,
+    Divider,
+    useColorModeValue
 } from '@chakra-ui/react';
 import {
-    FiHome, FiUsers, FiCreditCard, FiMapPin, FiBell, FiUser, FiLock
+    FiHome,
+    FiUsers,
+    FiCreditCard,
+    FiDollarSign,
+    FiMapPin,
+    FiBell,
+    FiUser,
+    FiLock
 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -11,6 +24,7 @@ const navItems = [
     { label: 'Main Dashboard', icon: FiHome, path: '/' },
     { label: 'Users', icon: FiUsers, path: '/users' },
     { label: 'Cards', icon: FiCreditCard, path: '/cards' },
+    { label: 'Transactions', icon: FiDollarSign, path: '/transactions' },
     { label: 'Travel Plan', icon: FiMapPin, path: '/travel' },
     { label: 'Notifications', icon: FiBell, path: '/notifications' },
     { label: 'Profile', icon: FiUser, path: '/profile' },
