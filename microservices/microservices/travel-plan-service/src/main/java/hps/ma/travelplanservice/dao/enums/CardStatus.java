@@ -1,0 +1,8 @@
+package hps.ma.travelplanservice.dao.enums;
+
+public enum    CardStatus {
+
+    ACTIVE, TEMPORARILY_BLOCKED, SECURITY_BLOCKED, FRAUD_BLOCKED, CLOSED_REQUEST,
+    PERMANENTLY_BLOCKED, LOST, STOLEN, DAMAGED, SUSPENDED, NEW_REQUEST
+
+}
